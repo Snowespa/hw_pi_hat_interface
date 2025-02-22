@@ -1,7 +1,9 @@
 #include "../include/board.hpp"
 
+#include <bits/types/struct_timeval.h>
 #include <fcntl.h>
 #include <sys/ioctl.h>
+#include <sys/select.h>
 #include <termios.h>
 #include <unistd.h>
 
@@ -9,6 +11,7 @@
 #include <cstring>
 #include <ios>
 #include <iostream>
+#include <ostream>
 #include <vector>
 
 #include "../include/hwPkt.hpp"
@@ -16,6 +19,7 @@
 Board::Board(const std::string &device, int baud_rate, int timeout)
     : dev(device), br(baud_rate), timeout(timeout), fd(-1) {
   openPort();
+  rcvThread = std::thread(&Board::rcvPkt, this);
 }
 
 Board::~Board() {
@@ -23,6 +27,8 @@ Board::~Board() {
   if (rcvThread.joinable()) rcvThread.join();
   closePort();
 }
+
+void Board::enable_recieve(const bool enable) { rcv = enable; }
 
 bool Board::openPort() {
   fd = open(dev.c_str(), O_RDWR | O_NOCTTY);
@@ -74,7 +80,7 @@ void Board::closePort() {
   }
 }
 
-unsigned char Board::checksumCRC8(const std::vector<unsigned char> &data) {
+uint8_t Board::checksumCRC8(const std::vector<uint8_t> &data) {
   unsigned char chk = 0;
   for (auto d : data) {
     chk = CRC8_TABLE[chk ^ d];
@@ -82,13 +88,113 @@ unsigned char Board::checksumCRC8(const std::vector<unsigned char> &data) {
   return chk;
 }
 
-void Board::sendPkt(unsigned char func,
-                    const std::vector<unsigned char> &data) {
-  std::vector<unsigned char> buf{0xAA, 0x55, func};
-  buf.push_back(static_cast<unsigned char>(data.size()));
+void Board::rcvPkt() {
+  std::vector<uint8_t> frame;
+  PktContState state = PktContState::STARTBYTE0;
+  size_t rcv_count = 0;
+
+  fcntl(fd, F_SETFL, O_NONBLOCK);
+
+  fd_set read_fds;
+  struct timeval timeout;
+
+  while (rcv) {
+    FD_ZERO(&read_fds);
+    FD_SET(fd, &read_fds);
+
+    timeout.tv_sec = 5;
+    timeout.tv_usec = 0;
+
+    int result = select(fd + 1, &read_fds, nullptr, nullptr, &timeout);
+
+    if (result > 0) {
+      if (FD_ISSET(fd, &read_fds)) {
+        uint8_t buf[256];
+        int bytes_read = read(fd, buf, sizeof(buf));
+
+        if (bytes_read > 0) {
+          frame.clear();
+          rcv_count = 0;
+
+          for (int i = 0; i < bytes_read; i++) {
+            uint8_t byte = buf[i];
+
+            switch (state) {
+              case PktContState::STARTBYTE0:
+                if (byte == 0xAA) state = PktContState::STARTBYTE1;
+                break;
+              case PktContState::STARTBYTE1:
+                if (byte == 0x55) {
+                  state = PktContState::FUNC;
+                } else {
+                  state = PktContState::STARTBYTE0;
+                }
+                break;
+              case PktContState::FUNC:
+                if (byte < static_cast<uint8_t>(PktFunc::NONE)) {
+                  frame.push_back(byte);
+                  state = PktContState::LENGTH;
+                } else {
+                  state = PktContState::STARTBYTE0;
+                }
+                break;
+              case PktContState::LENGTH:
+                frame.push_back(byte);
+                state =
+                    (byte == 0) ? PktContState::CHECKSUM : PktContState::DATA;
+                break;
+              case PktContState::DATA:
+                frame.push_back(byte);
+                rcv_count++;
+                if (rcv_count >= frame[1]) state = PktContState::CHECKSUM;
+                break;
+              case PktContState::CHECKSUM:
+                if (checksumCRC8(frame) != byte) {
+                  std::cerr << "Checksum Failed!" << std::endl;
+                  state = PktContState::STARTBYTE0;
+                  break;
+                }
+                PktFunc func = static_cast<PktFunc>(frame[0]);
+                std::vector<uint8_t> pkt_data(frame.begin() + 2, frame.end());
+                switch (func) {
+                  case PktFunc::SYS:
+                    sysQ.push(pkt_data);
+                    break;
+                  case PktFunc::LED:
+                    ledQ.push(pkt_data);
+                    break;
+                  case PktFunc::KEY:
+                    keyQ.push(pkt_data);
+                    break;
+                  case PktFunc::SBUS:
+                    sbusQ.push(pkt_data);
+                    break;
+                  case PktFunc::BUS_SERVO:
+                    servoQ.push(pkt_data);
+                  default:
+                    std::cerr << "Unknown packet type" << std::endl;
+                    break;
+                }
+                state = PktContState::STARTBYTE0;
+                break;
+            }
+          }
+        }
+      }
+    } else if (result == 0) {
+      // Timeout reached, no data recived
+      continue;
+    } else {
+      std::cerr << "Error in select()!" << std::endl;
+    }
+  }
+}
+
+void Board::sendPkt(uint8_t func, const std::vector<uint8_t> &data) {
+  std::vector<uint8_t> buf{0xAA, 0x55, func};
+  buf.push_back(static_cast<uint8_t>(data.size()));
   buf.insert(buf.end(), data.begin(), data.end());
-  unsigned char crc8 =
-      checksumCRC8(std::vector<unsigned char>(buf.begin() + 2, buf.end()));
+  uint8_t crc8 = checksumCRC8(std::vector<uint8_t>(buf.begin() + 2, buf.end()));
   buf.push_back(crc8);
   write(fd, buf.data(), sizeof(buf));
 }
@@ -108,9 +214,28 @@ void Board::setBuzzer(const float on_time, const float off_time,
       static_cast<uint8_t>(repeat & 0x00FF),
       static_cast<uint8_t>((repeat & 0xFF00) >> 8),
   };
-  for (auto d : data) {
-    std::cout << std::hex << unsigned(d) << " ";
-  }
-  std::cout << std::endl;
   sendPkt(static_cast<uint8_t>(PktFunc::BUZ), data);
+}
+
+uint16_t Board::getBattery() {
+  if (!rcv) {
+    std::cerr << "Enable Message Reception First!" << std::endl;
+    return 0;
+  }
+
+  if (sysQ.empty()) {
+    std::cerr << "No Battery message available " << std::endl;
+    return 0;
+  }
+
+  std::vector<uint8_t> data = sysQ.front();
+  sysQ.pop();
+  if (data[0] == 0x04) {
+    uint16_t battery =
+        static_cast<uint16_t>(data[1]) | (static_cast<uint16_t>(data[2]) << 8);
+    return battery;
+  }
+
+  std::cerr << "Did not recognize the message " << std::endl;
+  return 0;
 }

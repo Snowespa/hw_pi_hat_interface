@@ -9,7 +9,7 @@
 #include <vector>
 
 // CRC-8 Lookup Table
-constexpr unsigned char CRC8_TABLE[256] = {
+constexpr uint8_t CRC8_TABLE[256] = {
     0,   94,  188, 226, 97,  63,  221, 131, 194, 156, 126, 32,  163, 253, 31,
     65,  157, 195, 33,  127, 252, 162, 64,  30,  95,  1,   227, 189, 62,  96,
     130, 220, 35,  125, 159, 193, 66,  28,  254, 160, 225, 191, 93,  3,   128,
@@ -34,6 +34,8 @@ class Board {
   Board(const std::string &device, int baud_rate, int timout);
   ~Board();
 
+  void enable_recieve(const bool enable);
+
   /*
    * Set the buzzer on the board. Non-blocking, reseting the buzzer before the
    * sound is stopped resets the buzzer.
@@ -49,18 +51,20 @@ class Board {
   void setBuzzer(const float on_time, const float off_time, const uint16_t freq,
                  const uint16_t repeat = 1);
 
+  uint16_t getBattery();
+
  private:
   bool openPort();
   void closePort();
-  void sendPkt(unsigned char func, const std::vector<unsigned char> &data);
+  void sendPkt(uint8_t func, const std::vector<uint8_t> &data);
   void rcvPkt();
-  unsigned char checksumCRC8(const std::vector<unsigned char> &data);
+  uint8_t checksumCRC8(const std::vector<uint8_t> &data);
 
-  std::queue<std::vector<unsigned char>> sysQ;
-  std::queue<std::vector<unsigned char>> servoQ;
-  std::queue<std::vector<unsigned char>> keyQ;
-  std::queue<std::vector<unsigned char>> sbusQ;
-  std::queue<std::vector<unsigned char>> ledQ;
+  std::queue<std::vector<uint8_t>> sysQ;
+  std::queue<std::vector<uint8_t>> servoQ;
+  std::queue<std::vector<uint8_t>> keyQ;
+  std::queue<std::vector<uint8_t>> sbusQ;
+  std::queue<std::vector<uint8_t>> ledQ;
 
   std::thread rcvThread;
   std::atomic<bool> rcv;
