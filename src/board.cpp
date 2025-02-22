@@ -29,8 +29,6 @@ Board::~Board() {
 }
 
 /* PRIVATE FUNCTIONS */
-void Board::setRecieve(const bool enable) { rcv = enable; }
-
 bool Board::openPort() {
   fd = open(dev.c_str(), O_RDWR | O_NOCTTY);
   if (fd == -1) {
@@ -201,6 +199,8 @@ void Board::sendPkt(uint8_t func, const std::vector<uint8_t> &data) {
 }
 
 /* SETTERS */
+void Board::setRecieve(const bool enable) { rcv = enable; }
+
 void Board::setBuzzer(const float on_time, const float off_time,
                       const uint16_t freq, const uint16_t repeat) {
   uint16_t on_t = static_cast<uint16_t>(on_time * 1000);
@@ -217,6 +217,35 @@ void Board::setBuzzer(const float on_time, const float off_time,
       static_cast<uint8_t>((repeat & 0xFF00) >> 8),
   };
   sendPkt(static_cast<uint8_t>(PktFunc::BUZ), data);
+}
+
+void Board::setLed(const float on_time, const float off_time,
+                   const uint16_t repeat, const uint8_t id) {
+  uint16_t on_t = static_cast<uint16_t>(on_time * 1000);
+  uint16_t off_t = static_cast<uint16_t>(off_time * 1000);
+
+  std::vector<uint8_t> data = {
+      id,
+      static_cast<uint8_t>(on_t & 0x00FF),
+      static_cast<uint8_t>((on_t & 0xFF00) >> 8),
+      static_cast<uint8_t>(off_t & 0x00FF),
+      static_cast<uint8_t>((off_t & 0xFF00) >> 8),
+      static_cast<uint8_t>(repeat & 0x00FF),
+      static_cast<uint8_t>((repeat & 0xFF00) >> 8),
+  };
+  sendPkt(static_cast<uint8_t>(PktFunc::LED), data);
+}
+
+void Board::setRGB(
+    const std::vector<std::tuple<uint8_t, uint8_t, uint8_t, uint8_t>> &pixels) {
+  std::vector<uint8_t> data = {0x01, static_cast<uint8_t>(pixels.size())};
+  for (const auto &[id, r, g, b] : pixels) {
+    data.push_back(id);
+    data.push_back(r);
+    data.push_back(g);
+    data.push_back(b);
+  }
+  sendPkt(static_cast<uint8_t>(PktFunc::RGB), data);
 }
 
 /* GETTERS */
