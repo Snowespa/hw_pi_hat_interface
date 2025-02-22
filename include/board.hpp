@@ -1,11 +1,17 @@
 #ifndef __HW_PI_HAT_BOARD_HPP__
 #define __HW_PI_HAT_BOARD_HPP__
 
+#include <sys/types.h>
+#include <termios.h>
+#include <unistd.h>
+
 #include <atomic>
 #include <cstdint>
+#include <optional>
 #include <queue>
 #include <string>
 #include <thread>
+#include <tuple>
 #include <vector>
 
 // CRC-8 Lookup Table
@@ -31,33 +37,349 @@ constexpr uint8_t CRC8_TABLE[256] = {
 
 class Board {
  public:
-  Board(const std::string &device, int baud_rate, int timout);
+  /*
+   * Consturctor.
+   *
+   * arguments:
+   * ----------
+   *    - const std::string &device: the path to the device. (default
+   * "/dev/ttyAMA0")
+   *    - const int baud_rate: the board baud_rate. (default B1000000)
+   *    - const int timeout: the timeout for each message.
+   */
+  Board(const std::string &device = "/dev/ttyAMA0", int baud_rate = B1000000,
+        int timeout = 500);
+
+  /*
+   * Destructor. disable reception, stops the thread and closes the port
+   */
   ~Board();
 
-  void enable_recieve(const bool enable);
+  /*
+   * Set pkt reception.
+   *
+   * arguments:
+   * ----------
+   *    - const bool enable: if true, enables pkt reception. False to disable
+   * them.
+   */
+  void set_recieve(const bool enable);
 
+  /* SETTERS */
   /*
    * Set the buzzer on the board. Non-blocking, reseting the buzzer before the
    * sound is stopped resets the buzzer.
    *
    * arguments:
    * ----------
-   *   - const float on_time: time the buzzer stays on in seconds.
-   *   - const float off_time: timer the buzzer stay off in seconds.
-   *   - const uint16_t freq: the frequency off the buzzer.
-   *   - const uint16_t repeat: the number of cycles that will be executed.
+   *    - const float on_time: time the buzzer stays on in seconds.
+   *    - const float off_time: timer the buzzer stay off in seconds.
+   *    - const uint16_t freq: the frequency off the buzzer.
+   *    - const uint16_t repeat: the number of cycles that will be executed.
    * default 1.
    */
   void setBuzzer(const float on_time, const float off_time, const uint16_t freq,
                  const uint16_t repeat = 1);
+  /*
+   * Set Led id on for on_time seconds and off for off_time seconds and repeats
+   * the process for repeat itterations.
+   *
+   * arguments:
+   * ----------
+   *    - const float on_time: time the led stays on in seconds.
+   *    - const float off_time: time the led stays off in seconds.
+   *    - const uint16_t repeat: the number of cycles the led will be activated.
+   *    - const uint8_t id: the led id. range: [0, 1, 2].
+   */
+  void setLed(const float on_time, const float off_time,
+              const uint16_t repeat = 1, const uint8_t id = 0);
+  /*
+   * Set the rgb lights on for on_time seconds and off for off_time seconds and
+   * repates the process for repeat itterations.
+   *
+   * arguments:
+   * ----------
+   *    - const std::vector<std::tuple<uint8_t, uint8_t, uint8_t uint8_t>>
+   * pixels: vector representing the rgb led and its rbg content. pixels[i,0]
+   * represents the led id. pixels[i, 1:3] is the rgb value.
+   */
+  void setRGB(const std::vector<std::tuple<uint8_t, uint8_t, uint8_t, uint8_t>>
+                  &pixels);
 
-  uint16_t getBattery();
+  /*
+   * Enable or disable torque mode for servo id.
+   *
+   * arguments:
+   * ----------
+   *    - const uint8_t id: the servo id to edit.
+   *    - const bool enable: true, enable torque mode. flase, disable torque
+   * mode.
+   */
+  void setServoTorque(const uint8_t id, const bool enable);
+
+  /*
+   * Sets the id of a servo.
+   *
+   * arguments:
+   * ----------
+   *    - const uint8_t old_id: the current id of the servo.
+   *    - const uint8_t new_id: the new desired servo id.
+   */
+  void setServoId(const uint8_t old_id, const uint8_t new_id);
+
+  /*
+   * Sets the servo offset angle on servo id.
+   *
+   * arguments:
+   * ----------
+   *    - const uint8_t id: the servo id.
+   *    - const int8_t offset: the angle offset.
+   */
+  void setservoOffset(const uint8_t id, const int8_t offset);
+
+  /*
+   * Set servo angle limit onf servo id.
+   *
+   * arguments:
+   * ----------
+   *    - const uint8_t id: the servo id.
+   *    - const std::pair<uint16_t, uint16_t> lim: the min and max limit.
+   */
+  void setServoAngleLimit(const uint8_t id,
+                          const std::pair<uint16_t, uint16_t> &lim);
+
+  /*
+   * Set servo Volt input limit.
+   *
+   * arguments:
+   * ----------
+   *    - const uint8_t id: the servo id.
+   *    - const std::tuple<uint16_t, uint16_t> lim: the min and max limit.
+   */
+  void setServoVinLim(const uint8_t id,
+                      const std::tuple<uint16_t, uint16_t> &lim);
+
+  /*
+   * Set servo temperature limit.
+   *
+   * arguments:
+   * ----------
+   *    - const uint8_t id: the servo id.
+   *    - const uint8_t temp: the temperature limit.
+   */
+  void setServoTempLim(const uint8_t id, const uint8_t temp);
+
+  /*
+   * Set servos position.
+   *
+   * arguments:
+   * ----------
+   *    - const std::vector<uint8_t> &ids: the servo ids.
+   *    - const std::vector<uint16_t> &angles: the angles of each servo.
+   *    - const float duration: the desired time to move to the desired angle.
+   * If set to 0, the servo will move as fast as possible.
+   */
+  void setServoPos(const std::vector<uint8_t> &ids,
+                   const std::vector<uint16_t> &angles, const float duration);
+
+  /*
+   * Stops all servo in ids.
+   *
+   * arguments:
+   * ----------
+   *    - const std::vector<uint8_t> &ids: vector containing the servo ids.
+   */
+  void stopServo(const std::vector<uint8_t> &ids);
+
+  /*
+   * Save the servo offset of servo id.
+   *
+   * arguments:
+   * ----------
+   *    - const uint8_t id: the servo id.
+   */
+  void saveServoOffset(const uint8_t id);
+
+  /* GETTERS */
+
+  /*
+   * get battery status if available.
+   *
+   * returns:
+   * --------
+   *    - std::optional<uint16_t>: battery voltage.
+   */
+  std::optional<uint16_t> getBattery();
+
+  /*
+   * get button status if available.
+   *
+   * returns:
+   * --------
+   *    - std::optional<std::pair<uint8_t, uint8_t>>: button id and event.
+   */
+  std::optional<std::pair<uint8_t, uint8_t>> getButton();
+
+  /*
+   * get servo id. Requests servo id (id) on the bus. If available returns id.
+   * If not available returns empty optional. Id 254 corresponds to the
+   * broadcasting message and shoould return all servo available on the bus.
+   * (Not working at the moment.)
+   *
+   * arguments:
+   * ----------
+   *    - const uint8_t id. The servo id (default 254).
+   *
+   * returns:
+   * --------
+   *    - std::optional<uint8_t>: the servo id.
+   */
+  std::optional<uint8_t> getServoId(const uint8_t id = 254);
+
+  /*
+   * get servo id's offset.
+   *
+   * arguments:
+   * ----------
+   *    - const uint8_t id. The servo id.
+   *
+   * returns:
+   * --------
+   *    - std::optional<int8_t>: the servo offset.
+   */
+  std::optional<int8_t> getServoOffset(const uint8_t id);
+
+  /*
+   * get servo id's position.
+   *
+   * arguments:
+   * ----------
+   *    - const uint8_t id: the servo id.
+   *
+   * returns:
+   * --------
+   *    - std::optional<uint16_t> the servo position.
+   */
+  std::optional<uint16_t> getServoPos(const uint8_t id);
+
+  /*
+   * get servo angle limit.
+   *
+   * arguments:
+   * ----------
+   *     const uint8_t id: the servo id.
+   *
+   * returns:
+   * --------
+   *    - std::optional<std::pair<uint16_t, uint16_t>>: the high and low limit.
+   */
+  std::optional<std::pair<uint16_t, uint16_t>> getServoAngleLim(
+      const uint8_t id);
+
+  /*
+   * get servo voltage limit.
+   *
+   * arguments:
+   * ----------
+   *    - const uint8_t id: the servo id.
+   *
+   * returns:
+   * --------
+   *    - std::optional<std::pair<uint16_t, uint16_t>>: the high and low limit.
+   */
+  std::optional<std::tuple<uint16_t, uint16_t>> getServoVinLim(
+      const uint8_t id);
+
+  /*
+   * get servo voltage.
+   *
+   * arguments:
+   * ----------
+   *    - const uint8_t id: the servo id.
+   *
+   * returns:
+   * --------
+   *    - std::optional<uint16_t>: the servo voltage.
+   */
+  std::optional<uint16_t> getServoVin(const uint8_t id);
+
+  /*
+   * get the servo temperature.
+   *
+   * arguments:
+   * ----------
+   *    - const uint8_t id: the servo id.
+   *
+   * returns:
+   * --------
+   *    - std::optional<uint16_t>: the servo temperature.
+   */
+  std::optional<uint8_t> getServoTemp(const uint8_t id);
+
+  /*
+   * get servo temperature limit.
+   *
+   * arguments:
+   * ----------
+   *    - const uint8_t id: the servo id.
+   *
+   * returns:
+   * --------
+   *    - std::optional<uint8_t>: the serrvo temperature limit.
+   */
+  std::optional<uint8_t> getServoTempLim(const uint8_t id);
+
+  /*
+   * get the servo torque state.
+   *
+   * arguments:
+   * ----------
+   *    - const uint8_t id: the servo id.
+   *
+   * returns:
+   * --------
+   *    - std::optional<bool>: true if servo in torque mode, false otherwise.
+   */
+  std::optional<bool> getServoTorque(const uint8_t id);
 
  private:
+  /*
+   * opens device port.
+   */
   bool openPort();
+
+  /*
+   * Closes device port.
+   */
   void closePort();
+
+  /*
+   * Sends pkt from raspberry pi to the hw-pi-hat board.
+   *
+   * arguments:
+   * ----------
+   *    - uint8_t func: the board function to use. All functions are defined in
+   * the PktFunc enum class.
+   */
   void sendPkt(uint8_t func, const std::vector<uint8_t> &data);
+
+  /*
+   * Recieve pkt function. Listenst on the device, parses packets and puts the
+   * results in the right queue.
+   */
   void rcvPkt();
+
+  /*
+   * compute the CRC8 checksum of a given data vector.
+   *
+   * arguments:
+   * ----------
+   *    - const std::vector<uint8_t> &data: the data vector.
+   *
+   * returns:
+   * --------
+   *    - uint8_t: the checksum value.
+   */
   uint8_t checksumCRC8(const std::vector<uint8_t> &data);
 
   std::queue<std::vector<uint8_t>> sysQ;
