@@ -1,7 +1,8 @@
 #ifndef __HW_PKT_HPP__
 #define __HW_PKT_HPP__
 
-enum class PktContState {
+#include <cstdint>
+enum class PktContState : uint8_t {
   STARTBYTE0 = 0,
   STARTBYTE1 = 1,
   LENGTH = 2,
@@ -10,7 +11,7 @@ enum class PktContState {
   CHECKSUM = 5,
 };
 
-enum class PktFunc {
+enum class PktFunc : uint8_t {
   SYS = 0,
   LED = 1,
   BUZ = 2,
@@ -21,7 +22,7 @@ enum class PktFunc {
   NONE = 12,
 };
 
-enum class PktEvent {
+enum class PktEvent : uint8_t {
   PRESSED = 0x01,
   LONGPRESS = 0x02,
   LONGPRESS_REPEAT = 0x04,
