@@ -63,7 +63,7 @@ class Board {
    *    - const bool enable: if true, enables pkt reception. False to disable
    * them.
    */
-  void set_recieve(const bool enable);
+  void setRecieve(const bool enable);
 
   /* SETTERS */
   /*

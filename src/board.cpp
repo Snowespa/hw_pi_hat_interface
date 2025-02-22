@@ -9,8 +9,8 @@
 
 #include <cstdint>
 #include <cstring>
-#include <ios>
 #include <iostream>
+#include <optional>
 #include <ostream>
 #include <vector>
 
@@ -28,7 +28,8 @@ Board::~Board() {
   closePort();
 }
 
-void Board::enable_recieve(const bool enable) { rcv = enable; }
+/* PRIVATE FUNCTIONS */
+void Board::setRecieve(const bool enable) { rcv = enable; }
 
 bool Board::openPort() {
   fd = open(dev.c_str(), O_RDWR | O_NOCTTY);
@@ -199,6 +200,7 @@ void Board::sendPkt(uint8_t func, const std::vector<uint8_t> &data) {
   write(fd, buf.data(), sizeof(buf));
 }
 
+/* SETTERS */
 void Board::setBuzzer(const float on_time, const float off_time,
                       const uint16_t freq, const uint16_t repeat) {
   uint16_t on_t = static_cast<uint16_t>(on_time * 1000);
@@ -217,7 +219,8 @@ void Board::setBuzzer(const float on_time, const float off_time,
   sendPkt(static_cast<uint8_t>(PktFunc::BUZ), data);
 }
 
-uint16_t Board::getBattery() {
+/* GETTERS */
+std::optional<uint16_t> Board::getBattery() {
   if (!rcv) {
     std::cerr << "Enable Message Reception First!" << std::endl;
     return 0;
