@@ -21,7 +21,7 @@
 #include "../include/hwPkt.hpp"
 
 Board::Board(const std::string &device, int baud_rate, int timeout)
-    : dev(device), br(baud_rate), timeout(timeout), fd(-1) {
+    : dev(device), br(baud_rate), timeout(timeout), fd(-1), rcv(false) {
   openPort();
   rcvThread = std::thread(&Board::rcvPkt, this);
 }
