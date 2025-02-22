@@ -135,7 +135,7 @@ class Board {
    *    - const uint8_t id: the servo id.
    *    - const int8_t offset: the angle offset.
    */
-  void setservoOffset(const uint8_t id, const int8_t offset);
+  void setServoOffset(const uint8_t id, const int8_t offset);
 
   /*
    * Set servo angle limit onf servo id.

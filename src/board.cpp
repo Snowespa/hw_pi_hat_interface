@@ -4,6 +4,7 @@
 #include <fcntl.h>
 #include <sys/ioctl.h>
 #include <sys/select.h>
+#include <sys/types.h>
 #include <termios.h>
 #include <unistd.h>
 
@@ -246,6 +247,35 @@ void Board::setRGB(
     data.push_back(b);
   }
   sendPkt(static_cast<uint8_t>(PktFunc::RGB), data);
+}
+
+void Board::setServoTorque(const uint8_t id, const bool enable) {
+  uint8_t mode = enable ? 0x0B : 0x0C;
+  std::vector<uint8_t> data = {mode, id};
+  sendPkt(static_cast<uint8_t>(PktFunc::BUS_SERVO), data);
+}
+
+void Board::setServoId(const uint8_t old_id, const uint8_t new_id) {
+  std::vector<uint8_t> data = {0x10, old_id, new_id};
+  sendPkt(static_cast<uint8_t>(PktFunc::BUS_SERVO), data);
+}
+
+void Board::setServoOffset(const uint8_t id, const int8_t offset) {
+  std::vector<uint8_t> data = {0x20, id, static_cast<uint8_t>(offset)};
+  sendPkt(static_cast<uint8_t>(PktFunc::BUS_SERVO), data);
+}
+
+void Board::setServoAngleLimit(const uint8_t id,
+                               const std::pair<uint16_t, uint16_t> &lim) {
+  std::vector<uint8_t> data = {
+      0x30,
+      id,
+      static_cast<uint8_t>(lim.first & 0x00FF),
+      static_cast<uint8_t>((lim.first & 0xFF00) >> 8),
+      static_cast<uint8_t>(lim.second & 0x00FF),
+      static_cast<uint8_t>((lim.second & 0xFF00) >> 8),
+  };
+  sendPkt(static_cast<uint8_t>(PktFunc::BUS_SERVO), data);
 }
 
 /* GETTERS */
