@@ -8,11 +8,13 @@
 #include <termios.h>
 #include <unistd.h>
 
+#include <chrono>
 #include <cstdint>
 #include <cstring>
 #include <iostream>
 #include <optional>
 #include <ostream>
+#include <thread>
 #include <vector>
 
 #include "../include/hwPkt.hpp"
@@ -253,16 +255,19 @@ void Board::setServoTorque(const uint8_t id, const bool enable) {
   uint8_t mode = enable ? 0x0B : 0x0C;
   std::vector<uint8_t> data = {mode, id};
   sendPkt(static_cast<uint8_t>(PktFunc::BUS_SERVO), data);
+  std::this_thread::sleep_for(std::chrono::milliseconds(200));
 }
 
 void Board::setServoId(const uint8_t old_id, const uint8_t new_id) {
   std::vector<uint8_t> data = {0x10, old_id, new_id};
   sendPkt(static_cast<uint8_t>(PktFunc::BUS_SERVO), data);
+  std::this_thread::sleep_for(std::chrono::milliseconds(200));
 }
 
 void Board::setServoOffset(const uint8_t id, const int8_t offset) {
   std::vector<uint8_t> data = {0x20, id, static_cast<uint8_t>(offset)};
   sendPkt(static_cast<uint8_t>(PktFunc::BUS_SERVO), data);
+  std::this_thread::sleep_for(std::chrono::milliseconds(200));
 }
 
 void Board::setServoAngleLimit(const uint8_t id,
@@ -275,6 +280,43 @@ void Board::setServoAngleLimit(const uint8_t id,
       static_cast<uint8_t>(lim.second & 0x00FF),
       static_cast<uint8_t>((lim.second & 0xFF00) >> 8),
   };
+  sendPkt(static_cast<uint8_t>(PktFunc::BUS_SERVO), data);
+  std::this_thread::sleep_for(std::chrono::milliseconds(200));
+}
+
+void Board::setServoVinLim(const uint8_t id,
+                           const std::pair<uint16_t, uint16_t> &lim) {
+  std::vector<uint8_t> data = {
+      0x34,
+      id,
+      static_cast<uint8_t>(lim.first & 0x00FF),
+      static_cast<uint8_t>((lim.first & 0xFF00) >> 8),
+      static_cast<uint8_t>(lim.second & 0x00FF),
+      static_cast<uint8_t>((lim.second & 0xFF00) >> 8),
+  };
+  sendPkt(static_cast<uint8_t>(PktFunc::BUS_SERVO), data);
+  std::this_thread::sleep_for(std::chrono::milliseconds(200));
+}
+
+void Board::setServoTempLim(const uint8_t id, const int8_t temp) {
+  std::vector<uint8_t> data = {0x38, id, static_cast<uint8_t>(temp)};
+  sendPkt(static_cast<uint8_t>(PktFunc::BUS_SERVO), data);
+  std::this_thread::sleep_for(std::chrono::milliseconds(200));
+}
+
+void Board::setServoPos(const std::vector<uint8_t> &ids,
+                        const std::vector<uint16_t> &angles,
+                        const float duration) {
+  uint16_t dur = static_cast<uint16_t>(duration * 1000);
+  std::vector<uint8_t> data{0x01, static_cast<uint8_t>(dur & 0x00FF),
+                            static_cast<uint8_t>((dur & 0xFF00) >> 8),
+                            static_cast<uint8_t>(angles.size())};
+
+  for (int i = 0; i < angles.size(); i++) {
+    data.push_back(ids[i]);
+    data.push_back(static_cast<uint8_t>(angles[i] & 0x00FF));
+    data.push_back(static_cast<uint8_t>((angles[i] & 0xFF00) >> 8));
+  }
   sendPkt(static_cast<uint8_t>(PktFunc::BUS_SERVO), data);
 }
 

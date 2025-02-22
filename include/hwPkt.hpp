@@ -32,4 +32,5 @@ enum class PktEvent : uint8_t {
   DOUBLE_CLICK = 0x40,
   TRIPLE_CLICK = 0x80
 };
+
 #endif  // __HW_PKT_HPP__

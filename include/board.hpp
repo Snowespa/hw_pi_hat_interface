@@ -157,7 +157,7 @@ class Board {
    *    - const std::tuple<uint16_t, uint16_t> lim: the min and max limit.
    */
   void setServoVinLim(const uint8_t id,
-                      const std::tuple<uint16_t, uint16_t> &lim);
+                      const std::pair<uint16_t, uint16_t> &lim);
 
   /*
    * Set servo temperature limit.
@@ -167,7 +167,7 @@ class Board {
    *    - const uint8_t id: the servo id.
    *    - const uint8_t temp: the temperature limit.
    */
-  void setServoTempLim(const uint8_t id, const uint8_t temp);
+  void setServoTempLim(const uint8_t id, const int8_t temp);
 
   /*
    * Set servos position.
