@@ -15,6 +15,7 @@
 #include <optional>
 #include <ostream>
 #include <thread>
+#include <utility>
 #include <vector>
 
 #include "../include/hwPkt.hpp"
@@ -324,12 +325,12 @@ void Board::setServoPos(const std::vector<uint8_t> &ids,
 std::optional<uint16_t> Board::getBattery() {
   if (!rcv) {
     std::cerr << "Enable Message Reception First!" << std::endl;
-    return 0;
+    return std::nullopt;
   }
 
   if (sysQ.empty()) {
     std::cerr << "No Battery message available " << std::endl;
-    return 0;
+    return std::nullopt;
   }
 
   std::vector<uint8_t> data = sysQ.front();
@@ -341,5 +342,23 @@ std::optional<uint16_t> Board::getBattery() {
   }
 
   std::cerr << "Did not recognize the message " << std::endl;
-  return 0;
+  return std::nullopt;
+}
+
+std::optional<std::pair<uint8_t, uint8_t>> Board::getButton() {
+  if (!rcv) {
+    std::cerr << "Enable Message Reception First!" << std::endl;
+    return std::nullopt;
+  }
+
+  if (keyQ.empty()) {
+    std::cerr << "No Button message available " << std::endl;
+    return std::nullopt;
+  }
+
+  std::vector<uint8_t> data = keyQ.front();
+  keyQ.pop();
+  uint8_t key = data[0];
+  uint8_t event = data[1];
+  return std::pair<uint8_t, uint8_t>(key, event);
 }
