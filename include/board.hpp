@@ -1,6 +1,7 @@
 #ifndef __HW_PI_HAT_BOARD_HPP__
 #define __HW_PI_HAT_BOARD_HPP__
 
+#include <gpiod.hpp>
 #include <sys/types.h>
 #include <termios.h>
 #include <unistd.h>
@@ -36,7 +37,7 @@ constexpr uint8_t CRC8_TABLE[256] = {
     53};
 
 class Board {
- public:
+public:
   /*
    * Consturctor.
    *
@@ -47,7 +48,8 @@ class Board {
    *    - const int baud_rate: the board baud_rate. (default B1000000)
    *    - const int timeout: the timeout for each message.
    */
-  Board(const std::string &device = "/dev/ttyAMA0", int baud_rate = B1000000,
+  Board(const std::string &device = "/dev/ttyAMA0",
+        const std::string &chip = "/dev/gpiochip4", int baud_rate = B1000000,
         int timeout = 500);
 
   /*
@@ -273,8 +275,8 @@ class Board {
    * --------
    *    - std::optional<std::pair<uint16_t, uint16_t>>: the high and low limit.
    */
-  std::optional<std::pair<uint16_t, uint16_t>> getServoAngleLim(
-      const uint8_t id);
+  std::optional<std::pair<uint16_t, uint16_t>>
+  getServoAngleLim(const uint8_t id);
 
   /*
    * get servo voltage limit.
@@ -287,8 +289,8 @@ class Board {
    * --------
    *    - std::optional<std::pair<uint16_t, uint16_t>>: the high and low limit.
    */
-  std::optional<std::tuple<uint16_t, uint16_t>> getServoVinLim(
-      const uint8_t id);
+  std::optional<std::tuple<uint16_t, uint16_t>>
+  getServoVinLim(const uint8_t id);
 
   /*
    * get servo voltage.
@@ -342,7 +344,7 @@ class Board {
    */
   std::optional<bool> getServoTorque(const uint8_t id);
 
- private:
+private:
   /*
    * opens device port.
    */
@@ -382,6 +384,11 @@ class Board {
    */
   uint8_t checksumCRC8(const std::vector<uint8_t> &data);
 
+  /*
+   *
+   */
+  void listentButton();
+
   std::queue<std::vector<uint8_t>> sysQ;
   std::queue<std::vector<uint8_t>> servoQ;
   std::queue<std::vector<uint8_t>> keyQ;
@@ -391,8 +398,14 @@ class Board {
   std::thread rcvThread;
   std::atomic<bool> rcv;
   std::string dev;
+  gpiod::chip chip;
+  gpiod::line_request request;
+
+  const int key1_pin = 13;
+  const int key2_pin = 23;
+
   int br;
   int timeout;
   int fd;
 };
-#endif  // !__HW_PI_HAT_BOARD_HPP__
+#endif // !__HW_PI_HAT_BOARD_HPP__

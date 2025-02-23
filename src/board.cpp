@@ -20,20 +20,24 @@
 
 #include "../include/hwPkt.hpp"
 
-Board::Board(const std::string &device, int baud_rate, int timeout)
-    : dev(device), br(baud_rate), timeout(timeout), fd(-1), rcv(false) {
+Board::Board(const std::string &device, const std::string &chip, int baud_rate,
+             int timeout)
+    : dev(device), chip(chip), br(baud_rate), timeout(timeout), fd(-1),
+      rcv(false) {
   openPort();
   rcvThread = std::thread(&Board::rcvPkt, this);
 }
 
 Board::~Board() {
   rcv = false;
-  if (rcvThread.joinable()) rcvThread.join();
+  if (rcvThread.joinable())
+    rcvThread.join();
   closePort();
 }
 
 /* PRIVATE FUNCTIONS */
 bool Board::openPort() {
+  std::cout << "Opening serial port and initializing GPIO" << std::endl;
   fd = open(dev.c_str(), O_RDWR | O_NOCTTY);
   if (fd == -1) {
     std::cerr << "Error: could not open serial port: " << strerror(errno)
@@ -73,6 +77,7 @@ bool Board::openPort() {
     return false;
   }
   std::cout << "Serial port opened successfully !" << std::endl;
+
   return true;
 }
 
@@ -123,63 +128,64 @@ void Board::rcvPkt() {
             uint8_t byte = buf[i];
 
             switch (state) {
-              case PktContState::STARTBYTE0:
-                if (byte == 0xAA) state = PktContState::STARTBYTE1;
-                break;
-              case PktContState::STARTBYTE1:
-                if (byte == 0x55) {
-                  state = PktContState::FUNC;
-                } else {
-                  state = PktContState::STARTBYTE0;
-                }
-                break;
-              case PktContState::FUNC:
-                if (byte < static_cast<uint8_t>(PktFunc::NONE)) {
-                  frame.push_back(byte);
-                  state = PktContState::LENGTH;
-                } else {
-                  state = PktContState::STARTBYTE0;
-                }
-                break;
-              case PktContState::LENGTH:
+            case PktContState::STARTBYTE0:
+              if (byte == 0xAA)
+                state = PktContState::STARTBYTE1;
+              break;
+            case PktContState::STARTBYTE1:
+              if (byte == 0x55) {
+                state = PktContState::FUNC;
+              } else {
+                state = PktContState::STARTBYTE0;
+              }
+              break;
+            case PktContState::FUNC:
+              if (byte < static_cast<uint8_t>(PktFunc::NONE)) {
                 frame.push_back(byte);
-                state =
-                    (byte == 0) ? PktContState::CHECKSUM : PktContState::DATA;
-                break;
-              case PktContState::DATA:
-                frame.push_back(byte);
-                rcv_count++;
-                if (rcv_count >= frame[1]) state = PktContState::CHECKSUM;
-                break;
-              case PktContState::CHECKSUM:
-                if (checksumCRC8(frame) != byte) {
-                  std::cerr << "Checksum Failed!" << std::endl;
-                  state = PktContState::STARTBYTE0;
-                  break;
-                }
-                PktFunc func = static_cast<PktFunc>(frame[0]);
-                std::vector<uint8_t> pkt_data(frame.begin() + 2, frame.end());
-                switch (func) {
-                  case PktFunc::SYS:
-                    sysQ.push(pkt_data);
-                    break;
-                  case PktFunc::LED:
-                    ledQ.push(pkt_data);
-                    break;
-                  case PktFunc::KEY:
-                    keyQ.push(pkt_data);
-                    break;
-                  case PktFunc::SBUS:
-                    sbusQ.push(pkt_data);
-                    break;
-                  case PktFunc::BUS_SERVO:
-                    servoQ.push(pkt_data);
-                  default:
-                    std::cerr << "Unknown packet type" << std::endl;
-                    break;
-                }
+                state = PktContState::LENGTH;
+              } else {
+                state = PktContState::STARTBYTE0;
+              }
+              break;
+            case PktContState::LENGTH:
+              frame.push_back(byte);
+              state = (byte == 0) ? PktContState::CHECKSUM : PktContState::DATA;
+              break;
+            case PktContState::DATA:
+              frame.push_back(byte);
+              rcv_count++;
+              if (rcv_count >= frame[1])
+                state = PktContState::CHECKSUM;
+              break;
+            case PktContState::CHECKSUM:
+              if (checksumCRC8(frame) != byte) {
+                std::cerr << "Checksum Failed!" << std::endl;
                 state = PktContState::STARTBYTE0;
                 break;
+              }
+              PktFunc func = static_cast<PktFunc>(frame[0]);
+              std::vector<uint8_t> pkt_data(frame.begin() + 2, frame.end());
+              switch (func) {
+              case PktFunc::SYS:
+                sysQ.push(pkt_data);
+                break;
+              case PktFunc::LED:
+                ledQ.push(pkt_data);
+                break;
+              case PktFunc::KEY:
+                keyQ.push(pkt_data);
+                break;
+              case PktFunc::SBUS:
+                sbusQ.push(pkt_data);
+                break;
+              case PktFunc::BUS_SERVO:
+                servoQ.push(pkt_data);
+              default:
+                std::cerr << "Unknown packet type" << std::endl;
+                break;
+              }
+              state = PktContState::STARTBYTE0;
+              break;
             }
           }
         }

@@ -29,7 +29,7 @@ int main(int argc, char **argv) {
   board.setRecieve(true);
   sleep(2);
 
-  std::optional<uint8_t> battery = board.getBattery();
+  std::optional<uint16_t> battery = board.getBattery();
   if (battery) {
     std::cout << "Battery : " << unsigned(*battery) << std::endl;
   } else {
