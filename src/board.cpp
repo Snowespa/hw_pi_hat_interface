@@ -2,6 +2,8 @@
 
 #include <bits/types/struct_timeval.h>
 #include <fcntl.h>
+#include <gpiod.hpp>
+#include <iterator>
 #include <sys/ioctl.h>
 #include <sys/select.h>
 #include <sys/types.h>
@@ -22,17 +24,23 @@
 
 Board::Board(const std::string &device, const std::string &chip, int baud_rate,
              int timeout)
-    : dev(device), chip(chip), br(baud_rate), timeout(timeout), fd(-1),
-      rcv(false) {
+    : dev(device), br(baud_rate), timeout(timeout), fd(-1), rcvSerial(false),
+      chip(chip), rcvIO(false) {
   openPort();
-  rcvThread = std::thread(&Board::rcvPkt, this);
+  openGPIO();
+  rcvSerialThread = std::thread(&Board::rcvPkt, this);
+  rcvIOThread = std::thread(&Board::rcvGPIO, this);
 }
 
 Board::~Board() {
-  rcv = false;
-  if (rcvThread.joinable())
-    rcvThread.join();
+  rcvSerial = false;
+  rcvIO = false;
+  if (rcvSerialThread.joinable())
+    rcvSerialThread.join();
+  if (rcvIOThread.joinable())
+    rcvIOThread.join();
   closePort();
+  closeGPIO();
 }
 
 /* PRIVATE FUNCTIONS */
@@ -81,12 +89,19 @@ bool Board::openPort() {
   return true;
 }
 
+bool Board::openGPIO() {
+  rcvIO = true;
+  return true;
+}
+
 void Board::closePort() {
   if (fd != -1) {
     close(fd);
     fd = -1;
   }
 }
+
+void Board::closeGPIO() { chip.close(); }
 
 uint8_t Board::checksumCRC8(const std::vector<uint8_t> &data) {
   unsigned char chk = 0;
@@ -105,8 +120,8 @@ void Board::rcvPkt() {
 
   fd_set read_fds;
   struct timeval timeout;
-
-  while (rcv) {
+  std::cout << "Started Serial Thread! " << std::endl;
+  while (rcvSerial) {
     FD_ZERO(&read_fds);
     FD_SET(fd, &read_fds);
 
@@ -209,7 +224,10 @@ void Board::sendPkt(uint8_t func, const std::vector<uint8_t> &data) {
 }
 
 /* SETTERS */
-void Board::setRecieve(const bool enable) { rcv = enable; }
+void Board::setRecieve(const bool enable) {
+  rcvSerial = enable;
+  rcvIO = enable;
+}
 
 void Board::setBuzzer(const float on_time, const float off_time,
                       const uint16_t freq, const uint16_t repeat) {
@@ -329,7 +347,7 @@ void Board::setServoPos(const std::vector<uint8_t> &ids,
 
 /* GETTERS */
 std::optional<uint16_t> Board::getBattery() {
-  if (!rcv) {
+  if (!rcvSerial) {
     std::cerr << "Enable Message Reception First!" << std::endl;
     return std::nullopt;
   }
@@ -352,7 +370,7 @@ std::optional<uint16_t> Board::getBattery() {
 }
 
 std::optional<std::pair<uint8_t, uint8_t>> Board::getButton() {
-  if (!rcv) {
+  if (!rcvSerial) {
     std::cerr << "Enable Message Reception First!" << std::endl;
     return std::nullopt;
   }
@@ -367,4 +385,44 @@ std::optional<std::pair<uint8_t, uint8_t>> Board::getButton() {
   uint8_t key = data[0];
   uint8_t event = data[1];
   return std::pair<uint8_t, uint8_t>(key, event);
+}
+
+void Board::rcvGPIO() {
+  bool edge(false);
+  try {
+    gpiod::line_settings config;
+    config.set_direction(gpiod::line::direction::INPUT);
+    config.set_bias(gpiod::line::bias::PULL_UP);
+    config.set_edge_detection(gpiod::line::edge::BOTH);
+
+    gpiod::line_request request = chip.prepare_request()
+                                      .set_consumer("key_buttons")
+                                      .add_line_settings(key1_pin, config)
+                                      .add_line_settings(key2_pin, config)
+                                      .do_request();
+    std::cout << "Start GPIO thread" << std::endl;
+    gpiod::edge_event_buffer buf(2);
+    while (rcvIO) {
+      edge = request.wait_edge_events(std::chrono::milliseconds(100));
+      if (edge) {
+        int read = request.read_edge_events(buf);
+        for (gpiod::edge_event_buffer::const_iterator it = buf.begin();
+             it != buf.end(); it++) {
+          buttonCB(*it);
+        }
+      } else {
+        std::cout << "No IO activated!" << std::endl;
+      }
+    }
+
+    request.release();
+  } catch (const std::exception &e) {
+    std::cerr << "Failed to aquire GPIO Pins: " << e.what() << std::endl;
+  }
+}
+
+void Board::buttonCB(gpiod::edge_event e) {
+  uint8_t key = e.line_offset();
+  uint64_t time = e.timestamp_ns();
+  bool type(e.type() == gpiod::edge_event::event_type::FALLING_EDGE);
 }

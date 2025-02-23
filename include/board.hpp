@@ -6,6 +6,7 @@
 #include <termios.h>
 #include <unistd.h>
 
+#include "keyState.hpp"
 #include <atomic>
 #include <cstdint>
 #include <optional>
@@ -355,6 +356,9 @@ private:
    */
   void closePort();
 
+  bool openGPIO();
+  void closeGPIO();
+
   /*
    * Sends pkt from raspberry pi to the hw-pi-hat board.
    *
@@ -387,7 +391,12 @@ private:
   /*
    *
    */
-  void listentButton();
+  void rcvGPIO();
+
+  /*
+   *
+   */
+  void buttonCB(gpiod::edge_event e);
 
   std::queue<std::vector<uint8_t>> sysQ;
   std::queue<std::vector<uint8_t>> servoQ;
@@ -395,14 +404,23 @@ private:
   std::queue<std::vector<uint8_t>> sbusQ;
   std::queue<std::vector<uint8_t>> ledQ;
 
-  std::thread rcvThread;
-  std::atomic<bool> rcv;
+  std::thread rcvSerialThread;
+  std::atomic<bool> rcvSerial;
   std::string dev;
+  /* Buttons */
   gpiod::chip chip;
-  gpiod::line_request request;
+  std::thread rcvIOThread;
+  std::atomic<bool> rcvIO;
+  /*bool down = false;*/
+  /*bool multi_pending = false;*/
+  /*uint32_t up_time;*/
+  /*static const uint32_t MAX_GAP = 250;*/
+  /*static const uint32_t LONG_MIN = 700;*/
 
   const int key1_pin = 13;
   const int key2_pin = 23;
+  key_state key1_state;
+  key_state key2_state;
 
   int br;
   int timeout;
