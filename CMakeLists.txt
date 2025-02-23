@@ -26,4 +26,5 @@ include_directories(include)
 
 add_executable(board_test ${SOURCES})
 
-target_link_libraries(board_test pthread)
+target_link_libraries(board_test pthread gpiodcxx)
+
