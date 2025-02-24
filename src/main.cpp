@@ -25,7 +25,7 @@ int main(int argc, char **argv) {
   button = true;
   CLI11_PARSE(app, argc, argv);
 
-  Board board("/dev/ttyAMA0", B1000000, 500);
+  Board board;
   board.setRecieve(true);
   sleep(2);
 
@@ -35,6 +35,7 @@ int main(int argc, char **argv) {
   } else {
     std::cout << "No battery message available !" << std::endl;
   }
+
   if (startup) {
     uint16_t freq[3] = {550, 650, 850};
     float time[3] = {0.2, 0.2, 0.2};
@@ -50,8 +51,9 @@ int main(int argc, char **argv) {
     board.setBuzzer(1., 1., 0.);
     board.setRGB({{0, 0, 0, 0}});
     std::cout << "Good Morning!" << std::endl;
-  } else if (button) {
-    std::cout << "Test button!" << std::endl;
+  }
+
+  if (button) {
     std::optional<std::pair<uint8_t, uint8_t>> key_event = board.getButton();
     if (key_event) {
       print_key_event(*key_event);

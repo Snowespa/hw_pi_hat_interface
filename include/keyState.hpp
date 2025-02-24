@@ -1,12 +1,12 @@
 #ifndef __KEY_STATE_HPP__
 #define __KEY_STATE_HPP__
 
+#include "hwPkt.hpp"
 #include <cstdint>
 typedef struct {
-  bool value;
+  bool value; // True means the button is in pressed mode.
   uint64_t time;
-  uint8_t clicks;
-  uint8_t long_clicks;
+  PktEvent type;
 } key_state;
 
 #endif // !__KEY_STATE_HPP__

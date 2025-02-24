@@ -398,9 +398,15 @@ private:
    */
   void buttonCB(gpiod::edge_event e);
 
+  bool updateKeyState(uint64_t time, bool type, key_state *state);
+
+  void checkPending();
+
+  void initKey(key_state *state);
+
   std::queue<std::vector<uint8_t>> sysQ;
   std::queue<std::vector<uint8_t>> servoQ;
-  std::queue<std::vector<uint8_t>> keyQ;
+  std::queue<std::pair<uint8_t, uint8_t>> keyQ;
   std::queue<std::vector<uint8_t>> sbusQ;
   std::queue<std::vector<uint8_t>> ledQ;
 
@@ -415,7 +421,7 @@ private:
   /*bool multi_pending = false;*/
   /*uint32_t up_time;*/
   /*static const uint32_t MAX_GAP = 250;*/
-  /*static const uint32_t LONG_MIN = 700;*/
+  static const uint32_t MIN_LONG = 700 * 1e6;
 
   const int key1_pin = 13;
   const int key2_pin = 23;

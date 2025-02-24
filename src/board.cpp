@@ -1,9 +1,9 @@
 #include "../include/board.hpp"
 
 #include <bits/types/struct_timeval.h>
+#include <cstdlib>
 #include <fcntl.h>
 #include <gpiod.hpp>
-#include <iterator>
 #include <sys/ioctl.h>
 #include <sys/select.h>
 #include <sys/types.h>
@@ -28,6 +28,9 @@ Board::Board(const std::string &device, const std::string &chip, int baud_rate,
       chip(chip), rcvIO(false) {
   openPort();
   openGPIO();
+  initKey(&key1_state);
+  initKey(&key2_state);
+
   rcvSerialThread = std::thread(&Board::rcvPkt, this);
   rcvIOThread = std::thread(&Board::rcvGPIO, this);
 }
@@ -186,9 +189,6 @@ void Board::rcvPkt() {
                 break;
               case PktFunc::LED:
                 ledQ.push(pkt_data);
-                break;
-              case PktFunc::KEY:
-                keyQ.push(pkt_data);
                 break;
               case PktFunc::SBUS:
                 sbusQ.push(pkt_data);
@@ -370,7 +370,7 @@ std::optional<uint16_t> Board::getBattery() {
 }
 
 std::optional<std::pair<uint8_t, uint8_t>> Board::getButton() {
-  if (!rcvSerial) {
+  if (!rcvIO) {
     std::cerr << "Enable Message Reception First!" << std::endl;
     return std::nullopt;
   }
@@ -380,10 +380,10 @@ std::optional<std::pair<uint8_t, uint8_t>> Board::getButton() {
     return std::nullopt;
   }
 
-  std::vector<uint8_t> data = keyQ.front();
+  std::pair<uint8_t, uint8_t> data = keyQ.front();
   keyQ.pop();
-  uint8_t key = data[0];
-  uint8_t event = data[1];
+  uint8_t key = data.first;
+  uint8_t event = data.second;
   return std::pair<uint8_t, uint8_t>(key, event);
 }
 
@@ -411,7 +411,7 @@ void Board::rcvGPIO() {
           buttonCB(*it);
         }
       } else {
-        std::cout << "No IO activated!" << std::endl;
+        checkPending();
       }
     }
 
@@ -424,5 +424,45 @@ void Board::rcvGPIO() {
 void Board::buttonCB(gpiod::edge_event e) {
   uint8_t key = e.line_offset();
   uint64_t time = e.timestamp_ns();
-  bool type(e.type() == gpiod::edge_event::event_type::FALLING_EDGE);
+  bool value(e.type() == gpiod::edge_event::event_type::FALLING_EDGE);
+  bool send(false);
+  if (key == key1_pin) {
+    if (updateKeyState(time, value, &key1_state)) {
+      keyQ.push(std::pair<uint8_t, uint8_t>(
+          0, static_cast<uint8_t>(key1_state.type)));
+      initKey(&key1_state);
+    }
+  } else {
+    if (updateKeyState(time, value, &key2_state)) {
+      keyQ.push(std::pair<uint8_t, uint8_t>(
+          1, static_cast<uint8_t>(key2_state.type)));
+      initKey(&key2_state);
+    }
+  }
+}
+
+bool Board::updateKeyState(uint64_t time, bool value, key_state *state) {
+  // going from on to off
+  if (state->value) {
+    uint64_t delta = time - state->time;
+    if (delta > MIN_LONG) {
+      state->type = PktEvent::LONGPRESS;
+    } else {
+      state->type = PktEvent::PRESSED;
+    }
+    return true;
+  }
+  state->value = value;
+  state->time = time;
+  // going from off to on
+
+  return false;
+}
+
+void Board::checkPending() {}
+
+void Board::initKey(key_state *state) {
+  state->value = false;
+  state->time = 0;
+  state->type = PktEvent::NONE;
 }
