@@ -4,6 +4,7 @@
 #include <cstdlib>
 #include <fcntl.h>
 #include <gpiod.hpp>
+#include <mutex>
 #include <sys/ioctl.h>
 #include <sys/select.h>
 #include <sys/types.h>
@@ -179,11 +180,16 @@ void Board::rcvPkt() {
               PktFunc func = static_cast<PktFunc>(frame[0]);
               std::vector<uint8_t> pkt_data(frame.begin() + 2, frame.end());
               switch (func) {
-              case PktFunc::SYS:
-                sysQ.push(pkt_data);
+              case PktFunc::SYS: {
+                std::lock_guard<std::mutex> lockSys(sysM);
+                sysQ = pkt_data;
                 break;
-              case PktFunc::BUS_SERVO:
-                servoQ.push(pkt_data);
+              }
+              case PktFunc::BUS_SERVO: {
+                std::lock_guard<std::mutex> lockServo(servoM);
+                servoQ = pkt_data;
+                break;
+              }
               default:
                 std::cerr << "Unknown packet type" << std::endl;
                 break;
@@ -205,7 +211,7 @@ void Board::rcvPkt() {
   }
 }
 
-void Board::sendPkt(uint8_t func, const std::vector<uint8_t> &data) {
+void Board::sendPkt(const uint8_t func, const std::vector<uint8_t> &data) {
   std::vector<uint8_t> buf{0xAA, 0x55, func};
   buf.push_back(static_cast<uint8_t>(data.size()));
   buf.insert(buf.end(), data.begin(), data.end());
@@ -213,6 +219,8 @@ void Board::sendPkt(uint8_t func, const std::vector<uint8_t> &data) {
   buf.push_back(crc8);
   write(fd, buf.data(), sizeof(buf));
 }
+
+std::vector<uint8_t> Board::servoRead(const uint8_t id, const uint8_t cmd) {}
 
 /* SETTERS */
 void Board::setRecieve(const bool enable) {
@@ -347,13 +355,14 @@ std::optional<uint16_t> Board::getBattery() {
     return std::nullopt;
   }
 
-  if (sysQ.empty()) {
+  if (!sysQ) {
     std::cerr << "No Battery message available " << std::endl;
     return std::nullopt;
   }
 
-  std::vector<uint8_t> data = sysQ.front();
-  sysQ.pop();
+  std::lock_guard<std::mutex> lockSys(sysM);
+  std::vector<uint8_t> data = sysQ.value();
+  sysQ.reset();
   if (data[0] == 0x04) {
     uint16_t battery =
         static_cast<uint16_t>(data[1]) | (static_cast<uint16_t>(data[2]) << 8);
@@ -370,17 +379,30 @@ std::optional<std::pair<uint8_t, uint8_t>> Board::getButton() {
     return std::nullopt;
   }
 
-  if (keyQ.empty()) {
+  if (!keyQ) {
     std::cerr << "No Button message available " << std::endl;
     return std::nullopt;
   }
 
-  std::pair<uint8_t, uint8_t> data = keyQ.front();
-  keyQ.pop();
+  std::lock_guard<std::mutex> lockKey(keyM);
+  std::pair<uint8_t, uint8_t> data = keyQ.value();
+  keyQ.reset();
   uint8_t key = data.first;
   uint8_t event = data.second;
   return std::pair<uint8_t, uint8_t>(key, event);
 }
+
+std::optional<uint8_t> Board::getServoId(const uint8_t id) {}
+std::optional<int8_t> Board::getServoOffset(const uint8_t id) {}
+std::optional<uint16_t> Board::getServoPos(const uint8_t id) {}
+std::optional<std::pair<uint16_t, uint16_t>>
+Board::getServoAngleLim(const uint8_t id) {}
+std::optional<std::pair<uint16_t, uint16_t>>
+Board::getServoVinLim(const uint8_t id) {}
+std::optional<uint16_t> Board::getServoVin(const uint8_t id) {}
+std::optional<uint8_t> Board::getServoTemp(const uint8_t id) {}
+std::optional<uint8_t> Board::getServoTempLim(const uint8_t id) {}
+std::optional<bool> Board::getServoTorque(const uint8_t id) {}
 
 void Board::rcvGPIO() {
   bool edge(false);
@@ -423,14 +445,14 @@ void Board::buttonCB(gpiod::edge_event e) {
   bool send(false);
   if (key == key1_pin) {
     if (updateKeyState(time, value, &key1_state)) {
-      keyQ.push(std::pair<uint8_t, uint8_t>(
-          0, static_cast<uint8_t>(key1_state.type)));
+      keyQ =
+          std::pair<uint8_t, uint8_t>(0, static_cast<uint8_t>(key1_state.type));
       initKey(&key1_state);
     }
   } else {
     if (updateKeyState(time, value, &key2_state)) {
-      keyQ.push(std::pair<uint8_t, uint8_t>(
-          1, static_cast<uint8_t>(key2_state.type)));
+      keyQ =
+          std::pair<uint8_t, uint8_t>(1, static_cast<uint8_t>(key2_state.type));
       initKey(&key2_state);
     }
   }

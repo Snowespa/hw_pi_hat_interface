@@ -2,6 +2,7 @@
 #define __HW_PI_HAT_BOARD_HPP__
 
 #include <gpiod.hpp>
+#include <mutex>
 #include <sys/types.h>
 #include <termios.h>
 #include <unistd.h>
@@ -83,6 +84,7 @@ public:
    */
   void setBuzzer(const float on_time, const float off_time, const uint16_t freq,
                  const uint16_t repeat = 1);
+
   /*
    * Set Led id on for on_time seconds and off for off_time seconds and repeats
    * the process for repeat itterations.
@@ -96,6 +98,7 @@ public:
    */
   void setLed(const float on_time, const float off_time,
               const uint16_t repeat = 1, const uint8_t id = 0);
+
   /*
    * Set the rgb lights on for on_time seconds and off for off_time seconds and
    * repates the process for repeat itterations.
@@ -290,8 +293,7 @@ public:
    * --------
    *    - std::optional<std::pair<uint16_t, uint16_t>>: the high and low limit.
    */
-  std::optional<std::tuple<uint16_t, uint16_t>>
-  getServoVinLim(const uint8_t id);
+  std::optional<std::pair<uint16_t, uint16_t>> getServoVinLim(const uint8_t id);
 
   /*
    * get servo voltage.
@@ -367,7 +369,9 @@ private:
    *    - uint8_t func: the board function to use. All functions are defined in
    * the PktFunc enum class.
    */
-  void sendPkt(uint8_t func, const std::vector<uint8_t> &data);
+  void sendPkt(const uint8_t func, const std::vector<uint8_t> &data);
+
+  std::vector<uint8_t> servoRead(const uint8_t id, const uint8_t cmd);
 
   /*
    * Recieve pkt function. Listenst on the device, parses packets and puts the
@@ -404,9 +408,15 @@ private:
 
   void initKey(key_state *state);
 
-  std::queue<std::vector<uint8_t>> sysQ;
-  std::queue<std::vector<uint8_t>> servoQ;
-  std::queue<std::pair<uint8_t, uint8_t>> keyQ;
+  /* ATTRIBUTES */
+  std::optional<std::vector<uint8_t>> sysQ;
+  std::mutex sysM;
+
+  std::optional<std::vector<uint8_t>> servoQ;
+  std::mutex servoM;
+
+  std::optional<std::pair<uint8_t, uint8_t>> keyQ;
+  std::mutex keyM;
 
   std::thread rcvSerialThread;
   std::atomic<bool> rcvSerial;
