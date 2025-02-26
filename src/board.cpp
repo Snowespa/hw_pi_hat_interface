@@ -182,12 +182,6 @@ void Board::rcvPkt() {
               case PktFunc::SYS:
                 sysQ.push(pkt_data);
                 break;
-              case PktFunc::LED:
-                ledQ.push(pkt_data);
-                break;
-              case PktFunc::SBUS:
-                sbusQ.push(pkt_data);
-                break;
               case PktFunc::BUS_SERVO:
                 servoQ.push(pkt_data);
               default:

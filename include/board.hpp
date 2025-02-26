@@ -407,8 +407,6 @@ private:
   std::queue<std::vector<uint8_t>> sysQ;
   std::queue<std::vector<uint8_t>> servoQ;
   std::queue<std::pair<uint8_t, uint8_t>> keyQ;
-  std::queue<std::vector<uint8_t>> sbusQ;
-  std::queue<std::vector<uint8_t>> ledQ;
 
   std::thread rcvSerialThread;
   std::atomic<bool> rcvSerial;
@@ -417,10 +415,6 @@ private:
   gpiod::chip chip;
   std::thread rcvIOThread;
   std::atomic<bool> rcvIO;
-  /*bool down = false;*/
-  /*bool multi_pending = false;*/
-  /*uint32_t up_time;*/
-  /*static const uint32_t MAX_GAP = 250;*/
   static const uint32_t MIN_LONG = 700 * 1e6;
 
   const int key1_pin = 13;

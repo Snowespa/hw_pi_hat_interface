@@ -17,7 +17,6 @@ enum class PktFunc : uint8_t {
   BUZ = 2,
   BUS_SERVO = 5,
   KEY = 6,
-  SBUS = 9,
   RGB = 11,
   NONE = 12,
 };
