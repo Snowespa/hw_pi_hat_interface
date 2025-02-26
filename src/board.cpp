@@ -30,9 +30,6 @@ Board::Board(const std::string &device, const std::string &chip, int baud_rate,
   openGPIO();
   initKey(&key1_state);
   initKey(&key2_state);
-
-  rcvSerialThread = std::thread(&Board::rcvPkt, this);
-  rcvIOThread = std::thread(&Board::rcvGPIO, this);
 }
 
 Board::~Board() {
@@ -128,23 +125,19 @@ void Board::rcvPkt() {
     FD_ZERO(&read_fds);
     FD_SET(fd, &read_fds);
 
-    timeout.tv_sec = 5;
+    timeout.tv_sec = 2;
     timeout.tv_usec = 0;
 
     int result = select(fd + 1, &read_fds, nullptr, nullptr, &timeout);
 
     if (result > 0) {
       if (FD_ISSET(fd, &read_fds)) {
-        uint8_t buf[256];
+        uint8_t buf[64];
         int bytes_read = read(fd, buf, sizeof(buf));
 
         if (bytes_read > 0) {
-          frame.clear();
-          rcv_count = 0;
-
           for (int i = 0; i < bytes_read; i++) {
             uint8_t byte = buf[i];
-
             switch (state) {
             case PktContState::STARTBYTE0:
               if (byte == 0xAA)
@@ -163,10 +156,12 @@ void Board::rcvPkt() {
                 state = PktContState::LENGTH;
               } else {
                 state = PktContState::STARTBYTE0;
+                frame.clear();
               }
               break;
             case PktContState::LENGTH:
               frame.push_back(byte);
+              rcv_count = 0;
               state = (byte == 0) ? PktContState::CHECKSUM : PktContState::DATA;
               break;
             case PktContState::DATA:
@@ -199,6 +194,7 @@ void Board::rcvPkt() {
                 std::cerr << "Unknown packet type" << std::endl;
                 break;
               }
+              frame.clear();
               state = PktContState::STARTBYTE0;
               break;
             }
@@ -207,6 +203,7 @@ void Board::rcvPkt() {
       }
     } else if (result == 0) {
       // Timeout reached, no data recived
+      std::cerr << "Timeout reached" << std::endl;
       continue;
     } else {
       std::cerr << "Error in select()!" << std::endl;
@@ -227,6 +224,10 @@ void Board::sendPkt(uint8_t func, const std::vector<uint8_t> &data) {
 void Board::setRecieve(const bool enable) {
   rcvSerial = enable;
   rcvIO = enable;
+  if (enable) {
+    rcvSerialThread = std::thread(&Board::rcvPkt, this);
+    rcvIOThread = std::thread(&Board::rcvGPIO, this);
+  }
 }
 
 void Board::setBuzzer(const float on_time, const float off_time,
