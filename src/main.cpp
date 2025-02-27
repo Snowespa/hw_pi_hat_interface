@@ -14,7 +14,7 @@
 
 void displayServoData(
     const std::vector<uint8_t> &ids, const std::vector<int8_t> &offsets,
-    const std::vector<uint16_t> &positions,
+    const std::vector<int16_t> &positions,
     const std::vector<std::pair<uint16_t, uint16_t>> &angles_lims,
     const std::vector<std::pair<uint16_t, uint16_t>> &vins_lims,
     const std::vector<uint16_t> &vins, const std::vector<uint8_t> &temps,
@@ -121,17 +121,46 @@ int main(int argc, char **argv) {
   if (button) {
     std::optional<std::pair<uint8_t, uint8_t>> key_event = board.getButton();
     if (key_event) {
-      print_key_event(*key_event);
+      if (key_event.value().first == 0) {
+        if (key_event.value().second == 1) {
+          board.setServoPos({0, 1, 2}, {1000, 1000, 1000}, 0);
+        } else {
+          board.setServoPos({0, 1, 2}, {0, 0, 0}, 0);
+        }
+      }
+
+      if (key_event.value().first == 1) {
+        if (key_event.value().second == 1) {
+          board.setServoPos({3, 4, 5}, {1000, 1000, 1000}, 0);
+        } else {
+          board.setServoPos({3, 4, 5}, {0, 0, 0}, 0);
+        }
+      }
     } else {
       std::cout << "No value returned" << std::endl;
     }
     sleep(5);
     key_event = board.getButton();
     if (key_event) {
-      print_key_event(*key_event);
+      if (key_event.value().first == 0) {
+        if (key_event.value().second == 1) {
+          board.setServoPos({0, 1, 2}, {1000, 1000, 1000}, 0);
+        } else {
+          board.setServoPos({0, 1, 2}, {0, 0, 0}, 0);
+        }
+      }
+
+      if (key_event.value().first == 1) {
+        if (key_event.value().second == 1) {
+          board.setServoPos({3, 4, 5}, {1000, 1000, 1000}, 0);
+        } else {
+          board.setServoPos({3, 4, 5}, {0, 0, 0}, 0);
+        }
+      }
     } else {
       std::cout << "No button pressed!" << std::endl;
     }
+    sleep(1);
   }
 
   if (status) {
@@ -143,8 +172,8 @@ int main(int argc, char **argv) {
     std::optional<uint8_t> offset;
     std::vector<int8_t> offsets;
 
-    std::optional<uint8_t> pos;
-    std::vector<uint16_t> positions;
+    std::optional<int16_t> pos;
+    std::vector<int16_t> positions;
 
     std::optional<std::pair<uint16_t, uint16_t>> angle_lims;
     std::vector<std::pair<uint16_t, uint16_t>> angles_lims;
