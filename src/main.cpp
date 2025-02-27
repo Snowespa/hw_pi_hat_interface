@@ -12,6 +12,48 @@
 #include "../include/board.hpp"
 #include "../third_party/CLI11.hpp"
 
+#include "../third_party/tabulate/tabulate.hpp"
+
+void displayServoData(
+    const std::vector<uint8_t> &ids, const std::vector<int8_t> &offsets,
+    const std::vector<uint16_t> &positions,
+    const std::vector<std::pair<uint16_t, uint16_t>> &angles_lims,
+    const std::vector<std::pair<uint16_t, uint16_t>> &vins_lims,
+    const std::vector<uint16_t> &vins, const std::vector<uint8_t> &temps,
+    const std::vector<uint8_t> &temps_lims, const std::vector<bool> &torques) {
+
+  tabulate::Table servo_table;
+  servo_table.add_row({"ID", "Offset", "Position", "Angle Limits", "Vin Limits",
+                       "Vin", "Temp", "Temp Limit", "Torque"});
+
+  for (size_t i = 0; i < ids.size(); i++) {
+    std::string angle_limit =
+        angles_lims.size() > i ? std::to_string(angles_lims[i].first) + " - " +
+                                     std::to_string(angles_lims[i].second)
+                               : "N/A";
+
+    std::string vin_limit = vins_lims.size() > i
+                                ? std::to_string(vins_lims[i].first) + " - " +
+                                      std::to_string(vins_lims[i].second)
+                                : "N/A";
+
+    servo_table.add_row(
+        {std::to_string(ids[i]),
+         offsets.size() > i ? std::to_string(offsets[i]) : "N/A",
+         positions.size() > i ? std::to_string(positions[i]) : "N/A",
+         angle_limit, vin_limit,
+         vins.size() > i ? std::to_string(vins[i]) : "N/A",
+         temps.size() > i ? std::to_string(temps[i]) : "N/A",
+         temps_lims.size() > i ? std::to_string(temps_lims[i]) : "N/A",
+         torques.size() > i ? (torques[i] ? "ON" : "OFF") : "N/A"});
+  }
+
+  servo_table.format()
+      .border_color(tabulate::Color::blue)
+      .corner_color(tabulate::Color::cyan);
+  std::cout << servo_table << std::endl;
+}
+
 void print_key_event(std::pair<uint8_t, uint8_t> key_event) {
   std::cout << unsigned(key_event.first)
             << " event: " << unsigned(key_event.second) << std::endl;
@@ -142,6 +184,8 @@ int main(int argc, char **argv) {
       }
     }
     std::cout << "IDs detected: " << ids.size() << std::endl;
+    displayServoData(ids, offsets, positions, angles_lims, vins_lims, vins,
+                     temps, temps_lims, torques);
   }
 
   return 0;
