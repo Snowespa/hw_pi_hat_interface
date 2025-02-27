@@ -1,4 +1,3 @@
-#include <iterator>
 #include <termios.h>
 #include <unistd.h>
 
@@ -11,7 +10,6 @@
 
 #include "../include/board.hpp"
 #include "../third_party/CLI11.hpp"
-
 #include "../third_party/tabulate/tabulate.hpp"
 
 void displayServoData(
@@ -23,8 +21,8 @@ void displayServoData(
     const std::vector<uint8_t> &temps_lims, const std::vector<bool> &torques) {
 
   tabulate::Table servo_table;
-  servo_table.add_row({"ID", "Offset", "Position", "Angle Limits", "Vin Limits",
-                       "Vin", "Temp", "Temp Limit", "Torque"});
+  servo_table.add_row({"ID", "Position", "Position Limits", "Position Offset",
+                       "Vin", "Vin Limits", "Temp", "Temp Limit", "Torque"});
 
   for (size_t i = 0; i < ids.size(); i++) {
     std::string angle_limit =
@@ -39,18 +37,40 @@ void displayServoData(
 
     servo_table.add_row(
         {std::to_string(ids[i]),
-         offsets.size() > i ? std::to_string(offsets[i]) : "N/A",
          positions.size() > i ? std::to_string(positions[i]) : "N/A",
-         angle_limit, vin_limit,
-         vins.size() > i ? std::to_string(vins[i]) : "N/A",
+         angle_limit, offsets.size() > i ? std::to_string(offsets[i]) : "N/A",
+         vins.size() > i ? std::to_string(vins[i]) : "N/A", vin_limit,
          temps.size() > i ? std::to_string(temps[i]) : "N/A",
          temps_lims.size() > i ? std::to_string(temps_lims[i]) : "N/A",
          torques.size() > i ? (torques[i] ? "ON" : "OFF") : "N/A"});
   }
 
+  servo_table[0]
+      .format()
+      .font_style({tabulate::FontStyle::bold, tabulate::FontStyle::underline})
+      .font_color(tabulate::Color::green)
+      .border_color(tabulate::Color::blue)
+      .corner_color(tabulate::Color::blue)
+      .corner_bottom_left("")
+      .corner_bottom_right("")
+      .corner_top_left("")
+      .corner_top_right("")
+      .border_top("")
+      .border_bottom("")
+      .border_right("|")
+      .border_left("|");
+
   servo_table.format()
       .border_color(tabulate::Color::blue)
-      .corner_color(tabulate::Color::cyan);
+      .corner_color(tabulate::Color::blue)
+      .corner_bottom_left("")
+      .corner_bottom_right("")
+      .corner_top_left("")
+      .corner_top_right("")
+      .border_top("")
+      .border_bottom("")
+      .border_right("|")
+      .border_left("|");
   std::cout << servo_table << std::endl;
 }
 
