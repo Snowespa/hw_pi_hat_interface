@@ -117,7 +117,7 @@ void Board::rcvPkt() {
   PktContState state = PktContState::STARTBYTE0;
   size_t rcv_count = 0;
 
-  fcntl(fd, F_SETFL, O_NONBLOCK);
+  fcntl(fd, F_SETFL, ~O_NONBLOCK);
 
   fd_set read_fds;
   struct timeval timeout;
@@ -174,6 +174,7 @@ void Board::rcvPkt() {
             case PktContState::CHECKSUM:
               if (checksumCRC8(frame) != byte) {
                 std::cerr << "Checksum Failed!" << std::endl;
+                frame.clear();
                 state = PktContState::STARTBYTE0;
                 break;
               }
@@ -186,8 +187,11 @@ void Board::rcvPkt() {
                 break;
               }
               case PktFunc::BUS_SERVO: {
+                // Aquire lock on servoQ to populate it.
                 std::lock_guard<std::mutex> lockServo(servoM);
                 servoQ = pkt_data;
+                // Notify the waiting process.
+                servoCV.notify_one();
                 break;
               }
               default:
@@ -229,27 +233,108 @@ std::vector<uint8_t> Board::servoRead(const uint8_t id, const uint8_t cmd) {
   std::vector<uint8_t> send_data{cmd, id};
   sendPkt(static_cast<uint8_t>(PktFunc::BUS_SERVO), send_data);
 
+  // Wait until element is available to consume
   std::unique_lock<std::mutex> lockServo(servoM);
-
   while (!servoQ) {
-    lockServo.unlock();
-    std::this_thread::yield();
-    lockServo.lock();
+    servoCV.wait(lockServo);
   }
 
+  // Read and clear optional value.
   std::vector<uint8_t> rcvData(servoQ.value());
-  servoQ->clear();
+  servoQ.reset();
 
   if (rcvData.size() < 3) {
-    std::cerr << "Invalid response" << std::endl;
+    std::cerr << "Vector should be of size 3, got " << rcvData.size()
+              << std::endl;
     return {};
   }
 
   // Succes flag, 0 if succes.
   if (static_cast<int8_t>(rcvData[2]) != 0) {
     std::cerr << "Request failed" << std::endl;
+    return {};
   }
   return std::vector<uint8_t>(rcvData.begin() + 3, rcvData.end());
+}
+
+void Board::rcvGPIO() {
+  bool edge(false);
+  try {
+    gpiod::line_settings config;
+    config.set_direction(gpiod::line::direction::INPUT);
+    config.set_bias(gpiod::line::bias::PULL_UP);
+    config.set_edge_detection(gpiod::line::edge::BOTH);
+
+    gpiod::line_request request = chip.prepare_request()
+                                      .set_consumer("key_buttons")
+                                      .add_line_settings(key1_pin, config)
+                                      .add_line_settings(key2_pin, config)
+                                      .do_request();
+    std::cout << "Start GPIO thread" << std::endl;
+    gpiod::edge_event_buffer buf(2);
+    while (rcvIO) {
+      edge = request.wait_edge_events(std::chrono::milliseconds(100));
+      if (edge) {
+        int read = request.read_edge_events(buf);
+        for (gpiod::edge_event_buffer::const_iterator it = buf.begin();
+             it != buf.end(); it++) {
+          buttonCB(*it);
+        }
+      } else {
+        checkPending();
+      }
+    }
+
+    request.release();
+  } catch (const std::exception &e) {
+    std::cerr << "Failed to aquire GPIO Pins: " << e.what() << std::endl;
+  }
+}
+
+void Board::buttonCB(gpiod::edge_event e) {
+  uint8_t key = e.line_offset();
+  uint64_t time = e.timestamp_ns();
+  bool value(e.type() == gpiod::edge_event::event_type::FALLING_EDGE);
+  bool send(false);
+  if (key == key1_pin) {
+    if (updateKeyState(time, value, &key1_state)) {
+      keyQ =
+          std::pair<uint8_t, uint8_t>(0, static_cast<uint8_t>(key1_state.type));
+      initKey(&key1_state);
+    }
+  } else {
+    if (updateKeyState(time, value, &key2_state)) {
+      keyQ =
+          std::pair<uint8_t, uint8_t>(1, static_cast<uint8_t>(key2_state.type));
+      initKey(&key2_state);
+    }
+  }
+}
+
+bool Board::updateKeyState(uint64_t time, bool value, key_state *state) {
+  // going from on to off
+  if (state->value) {
+    uint64_t delta = time - state->time;
+    if (delta > MIN_LONG) {
+      state->type = PktEvent::LONGPRESS;
+    } else {
+      state->type = PktEvent::PRESSED;
+    }
+    return true;
+  }
+  state->value = value;
+  state->time = time;
+  // going from off to on
+
+  return false;
+}
+
+void Board::checkPending() {}
+
+void Board::initKey(key_state *state) {
+  state->value = false;
+  state->time = 0;
+  state->type = PktEvent::NONE;
 }
 
 /* SETTERS */
@@ -424,99 +509,77 @@ std::optional<std::pair<uint8_t, uint8_t>> Board::getButton() {
 
 std::optional<uint8_t> Board::getServoId(const uint8_t id) {
   std::vector<uint8_t> data = servoRead(id, 0x12);
-  if (data.empty()) {
+  if (data.empty())
     return std::nullopt;
-  }
   return data[0];
 }
 
-/*std::optional<int8_t> Board::getServoOffset(const uint8_t id) {}*/
-/*std::optional<uint16_t> Board::getServoPos(const uint8_t id) {}*/
-/*std::optional<std::pair<uint16_t, uint16_t>>*/
-/*Board::getServoAngleLim(const uint8_t id) {}*/
-/*std::optional<std::pair<uint16_t, uint16_t>>*/
-/*Board::getServoVinLim(const uint8_t id) {}*/
-/*std::optional<uint16_t> Board::getServoVin(const uint8_t id) {}*/
-/*std::optional<uint8_t> Board::getServoTemp(const uint8_t id) {}*/
-/*std::optional<uint8_t> Board::getServoTempLim(const uint8_t id) {}*/
-/*std::optional<bool> Board::getServoTorque(const uint8_t id) {}*/
-/**/
-void Board::rcvGPIO() {
-  bool edge(false);
-  try {
-    gpiod::line_settings config;
-    config.set_direction(gpiod::line::direction::INPUT);
-    config.set_bias(gpiod::line::bias::PULL_UP);
-    config.set_edge_detection(gpiod::line::edge::BOTH);
-
-    gpiod::line_request request = chip.prepare_request()
-                                      .set_consumer("key_buttons")
-                                      .add_line_settings(key1_pin, config)
-                                      .add_line_settings(key2_pin, config)
-                                      .do_request();
-    std::cout << "Start GPIO thread" << std::endl;
-    gpiod::edge_event_buffer buf(2);
-    while (rcvIO) {
-      edge = request.wait_edge_events(std::chrono::milliseconds(100));
-      if (edge) {
-        int read = request.read_edge_events(buf);
-        for (gpiod::edge_event_buffer::const_iterator it = buf.begin();
-             it != buf.end(); it++) {
-          buttonCB(*it);
-        }
-      } else {
-        checkPending();
-      }
-    }
-
-    request.release();
-  } catch (const std::exception &e) {
-    std::cerr << "Failed to aquire GPIO Pins: " << e.what() << std::endl;
-  }
+std::optional<int8_t> Board::getServoOffset(const uint8_t id) {
+  std::vector<uint8_t> data = servoRead(id, 0x22);
+  if (data.empty())
+    return std::nullopt;
+  return static_cast<int8_t>(data[0]);
 }
 
-void Board::buttonCB(gpiod::edge_event e) {
-  uint8_t key = e.line_offset();
-  uint64_t time = e.timestamp_ns();
-  bool value(e.type() == gpiod::edge_event::event_type::FALLING_EDGE);
-  bool send(false);
-  if (key == key1_pin) {
-    if (updateKeyState(time, value, &key1_state)) {
-      keyQ =
-          std::pair<uint8_t, uint8_t>(0, static_cast<uint8_t>(key1_state.type));
-      initKey(&key1_state);
-    }
-  } else {
-    if (updateKeyState(time, value, &key2_state)) {
-      keyQ =
-          std::pair<uint8_t, uint8_t>(1, static_cast<uint8_t>(key2_state.type));
-      initKey(&key2_state);
-    }
-  }
+std::optional<uint16_t> Board::getServoPos(const uint8_t id) {
+  std::vector<uint8_t> data = servoRead(id, 0x05);
+  if (data.empty())
+    return std::nullopt;
+  uint16_t pos =
+      static_cast<uint16_t>(data[0]) | (static_cast<uint16_t>(data[1]) << 8);
+  return pos;
 }
 
-bool Board::updateKeyState(uint64_t time, bool value, key_state *state) {
-  // going from on to off
-  if (state->value) {
-    uint64_t delta = time - state->time;
-    if (delta > MIN_LONG) {
-      state->type = PktEvent::LONGPRESS;
-    } else {
-      state->type = PktEvent::PRESSED;
-    }
-    return true;
-  }
-  state->value = value;
-  state->time = time;
-  // going from off to on
-
-  return false;
+std::optional<std::pair<uint16_t, uint16_t>>
+Board::getServoAngleLim(const uint8_t id) {
+  std::vector<uint8_t> data = servoRead(id, 0x32);
+  if (data.empty())
+    return std::nullopt;
+  uint16_t low =
+      static_cast<uint16_t>(data[0]) | (static_cast<uint16_t>(data[1]) << 8);
+  uint16_t high =
+      static_cast<uint16_t>(data[2]) | (static_cast<uint16_t>(data[3]) << 8);
+  return std::pair<uint16_t, uint16_t>(low, high);
 }
 
-void Board::checkPending() {}
+std::optional<std::pair<uint16_t, uint16_t>>
+Board::getServoVinLim(const uint8_t id) {
+  std::vector<uint8_t> data = servoRead(id, 0x07);
+  if (data.empty())
+    return std::nullopt;
+  uint16_t low =
+      static_cast<uint16_t>(data[0]) | (static_cast<uint16_t>(data[1]) << 8);
+  uint16_t high =
+      static_cast<uint16_t>(data[2]) | (static_cast<uint16_t>(data[3]) << 8);
+  return std::pair<uint16_t, uint16_t>(low, high);
+}
 
-void Board::initKey(key_state *state) {
-  state->value = false;
-  state->time = 0;
-  state->type = PktEvent::NONE;
+std::optional<uint16_t> Board::getServoVin(const uint8_t id) {
+  std::vector<uint8_t> data = servoRead(id, 0x36);
+  if (data.empty())
+    return std::nullopt;
+  uint16_t vin =
+      static_cast<uint16_t>(data[0]) | (static_cast<uint16_t>(data[1]) << 8);
+  return vin;
+}
+
+std::optional<uint8_t> Board::getServoTemp(const uint8_t id) {
+  std::vector<uint8_t> data = servoRead(id, 0x09);
+  if (data.empty())
+    return std::nullopt;
+  return data[0];
+}
+
+std::optional<uint8_t> Board::getServoTempLim(const uint8_t id) {
+  std::vector<uint8_t> data = servoRead(id, 0x3A);
+  if (data.empty())
+    return std::nullopt;
+  return data[0];
+}
+
+std::optional<bool> Board::getServoTorque(const uint8_t id) {
+  std::vector<uint8_t> data = servoRead(id, 0x0D);
+  if (data.empty())
+    return std::nullopt;
+  return data[0] == 1;
 }

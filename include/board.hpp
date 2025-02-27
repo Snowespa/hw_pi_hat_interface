@@ -1,6 +1,7 @@
 #ifndef __HW_PI_HAT_BOARD_HPP__
 #define __HW_PI_HAT_BOARD_HPP__
 
+#include <condition_variable>
 #include <gpiod.hpp>
 #include <mutex>
 #include <sys/types.h>
@@ -11,7 +12,6 @@
 #include <atomic>
 #include <cstdint>
 #include <optional>
-#include <queue>
 #include <string>
 #include <thread>
 #include <tuple>
@@ -380,6 +380,11 @@ private:
   void rcvPkt();
 
   /*
+   * Recieve and process GPIO inputs.
+   */
+  void rcvGPIO();
+
+  /*
    * compute the CRC8 checksum of a given data vector.
    *
    * arguments:
@@ -393,12 +398,7 @@ private:
   uint8_t checksumCRC8(const std::vector<uint8_t> &data);
 
   /*
-   *
-   */
-  void rcvGPIO();
-
-  /*
-   *
+   *  Process button events.
    */
   void buttonCB(gpiod::edge_event e);
 
@@ -414,6 +414,7 @@ private:
 
   std::optional<std::vector<uint8_t>> servoQ;
   std::mutex servoM;
+  std::condition_variable servoCV;
 
   std::optional<std::pair<uint8_t, uint8_t>> keyQ;
   std::mutex keyM;
