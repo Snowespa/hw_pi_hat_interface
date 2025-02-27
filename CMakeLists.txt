@@ -22,9 +22,12 @@ set(SOURCES
     src/main.cpp
 )
 
-include_directories(include)
-
 add_executable(board_test ${SOURCES})
+# Add include directories
+target_include_directories(board_test
+    PRIVATE ${CMAKE_SOURCE_DIR}/include
+    PRIVATE ${CMAKE_SOURCE_DIR}/third_party)
+
 
 target_link_libraries(board_test pthread gpiodcxx)
 
