@@ -3,10 +3,12 @@
 #include <bits/types/struct_timeval.h>
 #include <cstdlib>
 #include <fcntl.h>
+#include <fstream>
 #include <gpiod.hpp>
 #include <mutex>
 #include <sys/ioctl.h>
 #include <sys/select.h>
+#include <sys/stat.h>
 #include <sys/types.h>
 #include <termios.h>
 #include <unistd.h>
@@ -27,6 +29,7 @@ Board::Board(const std::string &device, const std::string &chip, int baud_rate,
              int timeout)
     : dev(device), br(baud_rate), timeout(timeout), fd(-1), rcvSerial(false),
       chip(chip), rcvIO(false) {
+  logf.open("log.txt");
   openPort();
   openGPIO();
   initKey(&key1_state);
@@ -42,15 +45,17 @@ Board::~Board() {
     rcvIOThread.join();
   closePort();
   closeGPIO();
+  logf << "[LOG]: Closed!" << std::endl;
+  logf.close();
 }
 
 /* PRIVATE FUNCTIONS */
 bool Board::openPort() {
-  std::cout << "Opening serial port and initializing GPIO" << std::endl;
+  logf << "[LOG]: Opening serial port and initializing GPIO" << std::endl;
   fd = open(dev.c_str(), O_RDWR | O_NOCTTY);
   if (fd == -1) {
-    std::cerr << "Error: could not open serial port: " << strerror(errno)
-              << std::endl;
+    logf << "[ERROR]: could not open serial port: " << strerror(errno)
+         << std::endl;
     return false;
   }
 
@@ -58,7 +63,7 @@ bool Board::openPort() {
   memset(&tty, 0, sizeof(tty));
 
   if (tcgetattr(fd, &tty) != 0) {
-    std::cerr << "Error: getting attributes: " << strerror(errno) << std::endl;
+    logf << "[ERROR]: getting attributes: " << strerror(errno) << std::endl;
     close(fd);
     return false;
   }
@@ -81,11 +86,11 @@ bool Board::openPort() {
   tty.c_cc[VMIN] = 0;
 
   if (tcsetattr(fd, TCSANOW, &tty) != 0) {
-    std::cerr << "Error: setting attributes: " << strerror(errno) << std::endl;
+    logf << "[ERROR]:  setting attributes: " << strerror(errno) << std::endl;
     close(fd);
     return false;
   }
-  std::cout << "Serial port opened successfully !" << std::endl;
+  logf << "[LOG]: Serial port opened successfully." << std::endl;
 
   return true;
 }
@@ -120,8 +125,8 @@ void Board::rcvPkt() {
   fcntl(fd, F_SETFL, ~O_NONBLOCK);
 
   fd_set read_fds;
+  logf << "[LOG]: recieve packet thread started." << std::endl;
   struct timeval timeout;
-  std::cout << "Started Serial Thread! " << std::endl;
   while (rcvSerial) {
     FD_ZERO(&read_fds);
     FD_SET(fd, &read_fds);
@@ -173,7 +178,7 @@ void Board::rcvPkt() {
               break;
             case PktContState::CHECKSUM:
               if (checksumCRC8(frame) != byte) {
-                std::cerr << "Checksum Failed!" << std::endl;
+                logf << "[ERROR]: Checksum Failed!" << std::endl;
                 frame.clear();
                 state = PktContState::STARTBYTE0;
                 break;
@@ -195,7 +200,7 @@ void Board::rcvPkt() {
                 break;
               }
               default:
-                std::cerr << "Unknown packet type" << std::endl;
+                logf << "[ERROR]: Unknown packet type!" << std::endl;
                 break;
               }
               frame.clear();
@@ -207,10 +212,10 @@ void Board::rcvPkt() {
       }
     } else if (result == 0) {
       // Timeout reached, no data recived
-      std::cerr << "Timeout reached" << std::endl;
+      logf << "[ERROR]: Timeout reached!" << std::endl;
       continue;
     } else {
-      std::cerr << "Error in select()!" << std::endl;
+      logf << "[ERROR]: Error in select()!" << std::endl;
     }
   }
 }
@@ -226,7 +231,7 @@ void Board::sendPkt(const uint8_t func, const std::vector<uint8_t> &data) {
 
 std::vector<uint8_t> Board::servoRead(const uint8_t id, const uint8_t cmd) {
   if (!rcvSerial) {
-    std::cout << "Error: enable packet reception first" << std::endl;
+    logf << "[ERROR]: enable packet reception first!" << std::endl;
     return {};
   }
 
@@ -244,14 +249,14 @@ std::vector<uint8_t> Board::servoRead(const uint8_t id, const uint8_t cmd) {
   servoQ.reset();
 
   if (rcvData.size() < 3) {
-    std::cerr << "Vector should be of size 3, got " << rcvData.size()
-              << std::endl;
+    logf << "[ERROR]: Vector should be of size 3, got " << rcvData.size() << "!"
+         << std::endl;
     return {};
   }
 
   // Succes flag, 0 if succes.
   if (static_cast<int8_t>(rcvData[2]) != 0) {
-    std::cerr << "Request failed" << std::endl;
+    logf << "[ERROR]: Request failed!" << std::endl;
     return {};
   }
   return std::vector<uint8_t>(rcvData.begin() + 3, rcvData.end());
@@ -270,7 +275,7 @@ void Board::rcvGPIO() {
                                       .add_line_settings(key1_pin, config)
                                       .add_line_settings(key2_pin, config)
                                       .do_request();
-    std::cout << "Start GPIO thread" << std::endl;
+    logf << "[LOG]: Start GPIO thread" << std::endl;
     gpiod::edge_event_buffer buf(2);
     while (rcvIO) {
       edge = request.wait_edge_events(std::chrono::milliseconds(100));
@@ -287,7 +292,7 @@ void Board::rcvGPIO() {
 
     request.release();
   } catch (const std::exception &e) {
-    std::cerr << "Failed to aquire GPIO Pins: " << e.what() << std::endl;
+    logf << "[ERROR]: Failed to aquire GPIO Pins: " << e.what() << std::endl;
   }
 }
 
@@ -466,12 +471,12 @@ void Board::setServoPos(const std::vector<uint8_t> &ids,
 /* GETTERS */
 std::optional<uint16_t> Board::getBattery() {
   if (!rcvSerial) {
-    std::cerr << "Enable Message Reception First!" << std::endl;
+    logf << "[ERROR]: Enable Message Reception First!" << std::endl;
     return std::nullopt;
   }
 
   if (!sysQ) {
-    std::cerr << "No Battery message available " << std::endl;
+    logf << "[ERROR]: No Battery message available!" << std::endl;
     return std::nullopt;
   }
 
@@ -484,18 +489,18 @@ std::optional<uint16_t> Board::getBattery() {
     return battery;
   }
 
-  std::cerr << "Did not recognize the message " << std::endl;
+  logf << "[ERROR]: Did not recognize the message!" << std::endl;
   return std::nullopt;
 }
 
 std::optional<std::pair<uint8_t, uint8_t>> Board::getButton() {
   if (!rcvIO) {
-    std::cerr << "Enable Message Reception First!" << std::endl;
+    logf << "[ERROR]: Enable Message Reception First!" << std::endl;
     return std::nullopt;
   }
 
   if (!keyQ) {
-    std::cerr << "No Button message available " << std::endl;
+    logf << "[ERROR]: No Button message available!" << std::endl;
     return std::nullopt;
   }
 

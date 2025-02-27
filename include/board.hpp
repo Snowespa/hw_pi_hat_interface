@@ -2,6 +2,7 @@
 #define __HW_PI_HAT_BOARD_HPP__
 
 #include <condition_variable>
+#include <fstream>
 #include <gpiod.hpp>
 #include <mutex>
 #include <sys/types.h>
@@ -436,5 +437,8 @@ private:
   int br;
   int timeout;
   int fd;
+
+  // Ostream for log files
+  std::ofstream logf;
 };
 #endif // !__HW_PI_HAT_BOARD_HPP__
