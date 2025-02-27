@@ -1,6 +1,7 @@
 #include "../include/board.hpp"
 
 #include <bits/types/struct_timeval.h>
+#include <condition_variable>
 #include <cstdlib>
 #include <fcntl.h>
 #include <fstream>
@@ -125,7 +126,7 @@ void Board::rcvPkt() {
   fcntl(fd, F_SETFL, ~O_NONBLOCK);
 
   fd_set read_fds;
-  logf << "[LOG]: recieve packet thread started." << std::endl;
+  logf << "[LOG]: Start Serial Thread." << std::endl;
   struct timeval timeout;
   while (rcvSerial) {
     FD_ZERO(&read_fds);
@@ -187,12 +188,14 @@ void Board::rcvPkt() {
               std::vector<uint8_t> pkt_data(frame.begin() + 2, frame.end());
               switch (func) {
               case PktFunc::SYS: {
+                logf << "[LOG]: got sys packet." << std::endl;
                 std::lock_guard<std::mutex> lockSys(sysM);
                 sysQ = pkt_data;
                 break;
               }
               case PktFunc::BUS_SERVO: {
                 // Aquire lock on servoQ to populate it.
+                logf << "[LOG]: got servo packet." << std::endl;
                 std::lock_guard<std::mutex> lockServo(servoM);
                 servoQ = pkt_data;
                 // Notify the waiting process.
@@ -239,9 +242,15 @@ std::vector<uint8_t> Board::servoRead(const uint8_t id, const uint8_t cmd) {
   sendPkt(static_cast<uint8_t>(PktFunc::BUS_SERVO), send_data);
 
   // Wait until element is available to consume
+  std::cv_status lock_status;
   std::unique_lock<std::mutex> lockServo(servoM);
   while (!servoQ) {
-    servoCV.wait(lockServo);
+    lock_status = servoCV.wait_for(lockServo, std::chrono::milliseconds(10));
+    // No packet recived in the time interval
+    if (lock_status == std::cv_status::timeout) {
+      logf << "[ERROR]: waited for an element for too long!" << std::endl;
+      return {};
+    }
   }
 
   // Read and clear optional value.
@@ -526,12 +535,12 @@ std::optional<int8_t> Board::getServoOffset(const uint8_t id) {
   return static_cast<int8_t>(data[0]);
 }
 
-std::optional<uint16_t> Board::getServoPos(const uint8_t id) {
+std::optional<int16_t> Board::getServoPos(const uint8_t id) {
   std::vector<uint8_t> data = servoRead(id, 0x05);
   if (data.empty())
     return std::nullopt;
-  uint16_t pos =
-      static_cast<uint16_t>(data[0]) | (static_cast<uint16_t>(data[1]) << 8);
+  int16_t pos =
+      static_cast<int16_t>(data[0]) | (static_cast<int16_t>(data[1]) << 8);
   return pos;
 }
 

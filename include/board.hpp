@@ -267,7 +267,7 @@ public:
    * --------
    *    - std::optional<uint16_t> the servo position.
    */
-  std::optional<uint16_t> getServoPos(const uint8_t id);
+  std::optional<int16_t> getServoPos(const uint8_t id);
 
   /*
    * get servo angle limit.
