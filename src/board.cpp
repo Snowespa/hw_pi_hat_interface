@@ -220,7 +220,37 @@ void Board::sendPkt(const uint8_t func, const std::vector<uint8_t> &data) {
   write(fd, buf.data(), sizeof(buf));
 }
 
-std::vector<uint8_t> Board::servoRead(const uint8_t id, const uint8_t cmd) {}
+std::vector<uint8_t> Board::servoRead(const uint8_t id, const uint8_t cmd) {
+  if (!rcvSerial) {
+    std::cout << "Error: enable packet reception first" << std::endl;
+    return {};
+  }
+
+  std::vector<uint8_t> send_data{cmd, id};
+  sendPkt(static_cast<uint8_t>(PktFunc::BUS_SERVO), send_data);
+
+  std::unique_lock<std::mutex> lockServo(servoM);
+
+  while (!servoQ) {
+    lockServo.unlock();
+    std::this_thread::yield();
+    lockServo.lock();
+  }
+
+  std::vector<uint8_t> rcvData(servoQ.value());
+  servoQ->clear();
+
+  if (rcvData.size() < 3) {
+    std::cerr << "Invalid response" << std::endl;
+    return {};
+  }
+
+  // Succes flag, 0 if succes.
+  if (static_cast<int8_t>(rcvData[2]) != 0) {
+    std::cerr << "Request failed" << std::endl;
+  }
+  return std::vector<uint8_t>(rcvData.begin() + 3, rcvData.end());
+}
 
 /* SETTERS */
 void Board::setRecieve(const bool enable) {
@@ -392,18 +422,25 @@ std::optional<std::pair<uint8_t, uint8_t>> Board::getButton() {
   return std::pair<uint8_t, uint8_t>(key, event);
 }
 
-std::optional<uint8_t> Board::getServoId(const uint8_t id) {}
-std::optional<int8_t> Board::getServoOffset(const uint8_t id) {}
-std::optional<uint16_t> Board::getServoPos(const uint8_t id) {}
-std::optional<std::pair<uint16_t, uint16_t>>
-Board::getServoAngleLim(const uint8_t id) {}
-std::optional<std::pair<uint16_t, uint16_t>>
-Board::getServoVinLim(const uint8_t id) {}
-std::optional<uint16_t> Board::getServoVin(const uint8_t id) {}
-std::optional<uint8_t> Board::getServoTemp(const uint8_t id) {}
-std::optional<uint8_t> Board::getServoTempLim(const uint8_t id) {}
-std::optional<bool> Board::getServoTorque(const uint8_t id) {}
+std::optional<uint8_t> Board::getServoId(const uint8_t id) {
+  std::vector<uint8_t> data = servoRead(id, 0x12);
+  if (data.empty()) {
+    return std::nullopt;
+  }
+  return data[0];
+}
 
+/*std::optional<int8_t> Board::getServoOffset(const uint8_t id) {}*/
+/*std::optional<uint16_t> Board::getServoPos(const uint8_t id) {}*/
+/*std::optional<std::pair<uint16_t, uint16_t>>*/
+/*Board::getServoAngleLim(const uint8_t id) {}*/
+/*std::optional<std::pair<uint16_t, uint16_t>>*/
+/*Board::getServoVinLim(const uint8_t id) {}*/
+/*std::optional<uint16_t> Board::getServoVin(const uint8_t id) {}*/
+/*std::optional<uint8_t> Board::getServoTemp(const uint8_t id) {}*/
+/*std::optional<uint8_t> Board::getServoTempLim(const uint8_t id) {}*/
+/*std::optional<bool> Board::getServoTorque(const uint8_t id) {}*/
+/**/
 void Board::rcvGPIO() {
   bool edge(false);
   try {
