@@ -542,9 +542,18 @@ Board::getServoAngleLim(const uint8_t id) {
   return std::pair<uint16_t, uint16_t>(low, high);
 }
 
+std::optional<uint16_t> Board::getServoVin(const uint8_t id) {
+  std::vector<uint8_t> data = servoRead(id, 0x07);
+  if (data.empty())
+    return std::nullopt;
+  uint16_t vin =
+      static_cast<uint16_t>(data[0]) | (static_cast<uint16_t>(data[1]) << 8);
+  return vin;
+}
+
 std::optional<std::pair<uint16_t, uint16_t>>
 Board::getServoVinLim(const uint8_t id) {
-  std::vector<uint8_t> data = servoRead(id, 0x07);
+  std::vector<uint8_t> data = servoRead(id, 0x36);
   if (data.empty())
     return std::nullopt;
   uint16_t low =
@@ -552,15 +561,6 @@ Board::getServoVinLim(const uint8_t id) {
   uint16_t high =
       static_cast<uint16_t>(data[2]) | (static_cast<uint16_t>(data[3]) << 8);
   return std::pair<uint16_t, uint16_t>(low, high);
-}
-
-std::optional<uint16_t> Board::getServoVin(const uint8_t id) {
-  std::vector<uint8_t> data = servoRead(id, 0x36);
-  if (data.empty())
-    return std::nullopt;
-  uint16_t vin =
-      static_cast<uint16_t>(data[0]) | (static_cast<uint16_t>(data[1]) << 8);
-  return vin;
 }
 
 std::optional<uint8_t> Board::getServoTemp(const uint8_t id) {
