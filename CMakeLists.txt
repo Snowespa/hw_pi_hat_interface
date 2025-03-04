@@ -1,7 +1,8 @@
 cmake_minimum_required(VERSION 3.16)
 
 # Project Name
-project(hw_pi_hat_interface)
+project(hwpihat)
+
 
 option(DEBUG_MODE "Enable Debug Mode" OFF)
 
@@ -17,17 +18,50 @@ else()
   set(CMAKE_BUILD_TYPE Release)
 endif()
 
+find_package(ament_cmake REQUIRED)
+
+find_library(GPIOD_LIBRARY gpiod)
+if(NOT GPIOD_LIBRARY)
+    message(FATAL_ERROR "libgpiod not found")
+endif()
+
 set(SOURCES
-    src/board.cpp
-    src/main.cpp
+    src/hw-pi-hat-lib.cpp
 )
 
-add_executable(board_test ${SOURCES})
+add_library(hwpihat STATIC ${SOURCES})
 # Add include directories
-target_include_directories(board_test
+target_include_directories(hwpihat
     PRIVATE ${CMAKE_SOURCE_DIR}/include
     PRIVATE ${CMAKE_SOURCE_DIR}/third_party)
 
 
-target_link_libraries(board_test pthread gpiodcxx)
+target_link_libraries(hwpihat pthread gpiodcxx)
+
+# Export include directories
+target_include_directories(hwpihat PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>
+)
+
+# Install the library and headers
+install(
+    TARGETS hwpihat
+    EXPORT hwpihatTargets
+    LIBRARY DESTINATION lib
+    ARCHIVE DESTINATION lib
+    RUNTIME DESTINATION bin
+)
+
+install(
+    DIRECTORY include/
+    DESTINATION include
+)
+
+# Generate CMake config files for this library
+ament_export_include_directories(include)
+ament_export_libraries(hwpihat)
+
+# Register the package with ament
+ament_package()
 
