@@ -12,8 +12,8 @@
 #include "rclcpp/message_info.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "std_msgs/msg/empty.hpp"
+#include "std_msgs/msg/int16_multi_array.hpp"
 #include "std_msgs/msg/u_int16.hpp"
-#include "std_msgs/msg/u_int16_multi_array.hpp"
 
 using namespace std::chrono_literals;
 
@@ -42,7 +42,7 @@ Ros2HwPiHat::Ros2HwPiHat() : Node("ros2_hw_pi_hat_interface"), board() {
       this->create_wall_timer(50ms, std::bind(&Ros2HwPiHat::temp_cb, this));
 
   pos_pub =
-      this->create_publisher<std_msgs::msg::UInt16MultiArray>("position", 10);
+      this->create_publisher<std_msgs::msg::Int16MultiArray>("position", 10);
   pos_timer =
       this->create_wall_timer(50ms, std::bind(&Ros2HwPiHat::pos_cb, this));
 
@@ -96,11 +96,11 @@ void Ros2HwPiHat::temp_cb() {
 }
 
 void Ros2HwPiHat::pos_cb() {
-  std::vector<uint16_t> positions;
+  std::vector<int16_t> positions;
   // Retrive temperatures
   for (std::vector<uint8_t>::iterator it = servos.begin(); it != servos.end();
        it++) {
-    std::optional<uint16_t> pos = board.getServoPos(*it);
+    std::optional<int16_t> pos = board.getServoPos(*it);
     if (pos)
       positions.push_back(pos.value());
   }
@@ -108,7 +108,7 @@ void Ros2HwPiHat::pos_cb() {
     RCLCPP_INFO(this->get_logger(), "Could not retrive all the positions");
     return;
   }
-  auto msg = std_msgs::msg::UInt16MultiArray();
+  auto msg = std_msgs::msg::Int16MultiArray();
   msg.layout.dim.resize(1);
   msg.layout.dim[0].size = positions.size();
   msg.layout.dim[0].label = "positions";
@@ -146,19 +146,10 @@ void Ros2HwPiHat::stop_cb(const std_msgs::msg::Empty::SharedPtr _) {
 }
 
 void Ros2HwPiHat::servo_cb(const hw_pi_hat_msgs::msg::Servos::SharedPtr msg) {
-  RCLCPP_INFO(this->get_logger(), "Recieved servo setting messge");
   // Parse IDS
-  std::string id_str = "IDs: ";
-  for (const auto &id : msg->ids.data) {
-    id_str += std::to_string(id) + " ";
-  }
-  RCLCPP_INFO(this->get_logger(), "%s", id_str.c_str());
-
-  std::string value_str = "Positions: ";
-  for (const auto &pos : msg->positions.data) {
-    value_str += std::to_string(pos) + " ";
-  }
-  RCLCPP_INFO(this->get_logger(), "%s", value_str.c_str());
+  std::vector<uint8_t> ids = msg->ids.data;
+  std::vector<uint16_t> positions = msg->positions.data;
+  board.setServoPos(ids, positions, 0);
 }
 
 int main(int argc, char *argv[]) {

@@ -6,6 +6,7 @@
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp/timer.hpp"
 #include "std_msgs/msg/empty.hpp"
+#include "std_msgs/msg/int16_multi_array.hpp"
 #include "std_msgs/msg/u_int16.hpp"
 #include "std_msgs/msg/u_int16_multi_array.hpp"
 #include "std_msgs/msg/u_int8_multi_array.hpp"
@@ -29,7 +30,7 @@ private:
   rclcpp::TimerBase::SharedPtr battery_timer;
   rclcpp::Publisher<std_msgs::msg::UInt8MultiArray>::SharedPtr temp_pub;
   rclcpp::TimerBase::SharedPtr temp_timer;
-  rclcpp::Publisher<std_msgs::msg::UInt16MultiArray>::SharedPtr pos_pub;
+  rclcpp::Publisher<std_msgs::msg::Int16MultiArray>::SharedPtr pos_pub;
   rclcpp::TimerBase::SharedPtr pos_timer;
   rclcpp::Publisher<std_msgs::msg::UInt16MultiArray>::SharedPtr vin_pub;
   rclcpp::TimerBase::SharedPtr vin_timer;
