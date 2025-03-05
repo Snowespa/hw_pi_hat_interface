@@ -14,29 +14,31 @@ Build the package with colcon.
 
 ## Topics
 
-- [x] `/battery` publishes the currenty voltage input to the system.
-- [x] `/temperature` publishes a list of all the connected bus servo's temperature at `~20Hz`.
-- [x] `/vin` publishes the input voltage of each servo at `~20Hz`.
-- [x] `/position` publishes the position of each servo at `~20Hz`.
+- `/battery` publishes the currenty voltage input to the system.
+- `/temperature` publishes a list of all the connected bus servo's temperature at `~20Hz`.
+- `/vin` publishes the input voltage of each servo at `~20Hz`.
+- `/position` publishes the position of each servo at `~20Hz`.
 
 ## Subscribers
 
-- [ ] `/stop` if any message is recieved on this topic all the servos stop.
-- [ ] `/set_servos_pos` Subscribes to message type `servo_msgs` a costum message type.
+- `/stop` if any message is recieved on this topic all the servos stop.
+- `/set_servos_pos` Subscribes to message type `servo_msgs` a costum message type.
 
 ## Services
 
-- [ ] `/set_servos_temperature_limit`
-- [ ] `/set_servos_voltage_limit`
-- [ ] `/set_servos_position_limit`
-- [ ] `/set_servo_offsets`
+- `/set_servos_temperature_limit`
+- `/set_servos_voltage_limit`
+- `/set_servos_position_limit`
+- `/set_servo_offsets`
 
 
 ## TODO
 
 - [x] keep only the last message in the queues.
 - [x] code and test the servo reading and writing.
-- [ ] wrap the board in a ros node.
+- [x] wrap the board in a ros node.
+- [ ] implement services
+- [ ] convert postion to angles [0, 1000] -> [0, 270]
 
 ## BUGS
 
