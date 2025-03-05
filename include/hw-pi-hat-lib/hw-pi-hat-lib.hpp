@@ -39,6 +39,8 @@ constexpr uint8_t CRC8_TABLE[256] = {
     116, 42,  200, 150, 21,  75,  169, 247, 182, 232, 10,  84,  215, 137, 107,
     53};
 
+namespace hwBoard {
+
 class Board {
 public:
   /*
@@ -53,7 +55,7 @@ public:
    */
   Board(const std::string &device = "/dev/ttyAMA0",
         const std::string &chip = "/dev/gpiochip4", int baud_rate = B1000000,
-        int timeout = 500);
+        int timeout = 500, bool log = false);
 
   /*
    * Destructor. disable reception, stops the thread and closes the port
@@ -420,9 +422,12 @@ private:
   std::optional<std::pair<uint8_t, uint8_t>> keyQ;
   std::mutex keyM;
 
+  std::string dev;
+  int br;
+  int timeout;
+  int fd;
   std::thread rcvSerialThread;
   std::atomic<bool> rcvSerial;
-  std::string dev;
   /* Buttons */
   gpiod::chip chip;
   std::thread rcvIOThread;
@@ -434,11 +439,10 @@ private:
   key_state key1_state;
   key_state key2_state;
 
-  int br;
-  int timeout;
-  int fd;
-
   // Ostream for log files
+  std::atomic<bool> log;
   std::ofstream logf;
 };
+
+} // namespace hwBoard
 #endif // !__HW_PI_HAT_BOARD_HPP__

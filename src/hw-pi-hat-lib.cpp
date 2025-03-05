@@ -1,4 +1,4 @@
-#include "../include/board.hpp"
+#include "hw-pi-hat-lib/hw-pi-hat-lib.hpp"
 
 #include <bits/types/struct_timeval.h>
 #include <condition_variable>
@@ -24,13 +24,17 @@
 #include <utility>
 #include <vector>
 
-#include "../include/hwPkt.hpp"
+#include "hw-pi-hat-lib/hwPkt.hpp"
+
+namespace hwBoard {
 
 Board::Board(const std::string &device, const std::string &chip, int baud_rate,
-             int timeout)
+             int timeout, bool log)
     : dev(device), br(baud_rate), timeout(timeout), fd(-1), rcvSerial(false),
-      chip(chip), rcvIO(false) {
-  logf.open("log.txt");
+      chip(chip), rcvIO(false), log(log) {
+  if (log) {
+    logf.open("log.txt");
+  }
   openPort();
   openGPIO();
   initKey(&key1_state);
@@ -289,7 +293,7 @@ void Board::rcvGPIO() {
     while (rcvIO) {
       edge = request.wait_edge_events(std::chrono::milliseconds(100));
       if (edge) {
-        int read = request.read_edge_events(buf);
+        (void)request.read_edge_events(buf);
         for (gpiod::edge_event_buffer::const_iterator it = buf.begin();
              it != buf.end(); it++) {
           buttonCB(*it);
@@ -309,7 +313,6 @@ void Board::buttonCB(gpiod::edge_event e) {
   uint8_t key = e.line_offset();
   uint64_t time = e.timestamp_ns();
   bool value(e.type() == gpiod::edge_event::event_type::FALLING_EDGE);
-  bool send(false);
   if (key == key1_pin) {
     if (updateKeyState(time, value, &key1_state)) {
       keyQ =
@@ -469,7 +472,7 @@ void Board::setServoPos(const std::vector<uint8_t> &ids,
                             static_cast<uint8_t>((dur & 0xFF00) >> 8),
                             static_cast<uint8_t>(angles.size())};
 
-  for (int i = 0; i < angles.size(); i++) {
+  for (uint8_t i = 0; i < angles.size(); i++) {
     data.push_back(ids[i]);
     data.push_back(static_cast<uint8_t>(angles[i] & 0x00FF));
     data.push_back(static_cast<uint8_t>((angles[i] & 0xFF00) >> 8));
@@ -597,3 +600,5 @@ std::optional<bool> Board::getServoTorque(const uint8_t id) {
     return std::nullopt;
   return data[0] == 1;
 }
+
+} // namespace hwBoard

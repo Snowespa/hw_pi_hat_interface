@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <package format="3">
-  <name>hwpihat</name>
+  <name>quaro_ros_interface</name>
   <version>0.0.1</version>
   <description>A standalone C++ library for the hiwonder raspberry pi hat board communication</description>
   <maintainer email="maxine.nicolay@gmail.com">Snowespa</maintainer>
@@ -8,12 +8,14 @@
 
   <!-- Dependencies -->
   <buildtool_depend>ament_cmake</buildtool_depend>
+  <depend>rclcpp</depend>
+  <depend>gpiod</depend>
 
   <!-- No ROS 2 dependencies needed since this is a standalone library -->
 
   <!-- Exported information -->
   <export>
     <build_type>ament_cmake</build_type>
-    <library_path>lib/libhwpihat.a</library_path>
-  </export>
-</package>
+    <library_path>lib/libhwpiha.a</library_path>
+    </export>
+  </package>
