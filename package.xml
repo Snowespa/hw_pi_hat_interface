@@ -10,6 +10,9 @@
   <buildtool_depend>ament_cmake</buildtool_depend>
   <depend>rclcpp</depend>
   <depend>gpiod</depend>
+  <depend>std_msgs</depend>
+  <depend>hw_pi_hat_msgs</depend>
+
 
   <!-- No ROS 2 dependencies needed since this is a standalone library -->
 
@@ -19,3 +22,4 @@
     <library_path>lib/libhwpiha.a</library_path>
     </export>
   </package>
+

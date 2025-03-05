@@ -1,4 +1,4 @@
-#include "hw-pi-hat-lib/hw-pi-hat-lib.hpp"
+#include "hw_pi_hat_lib/hw_pi_hat_lib.hpp"
 
 #include <bits/types/struct_timeval.h>
 #include <condition_variable>
@@ -24,7 +24,7 @@
 #include <utility>
 #include <vector>
 
-#include "hw-pi-hat-lib/hwPkt.hpp"
+#include "hw_pi_hat_lib/hwPkt.hpp"
 
 namespace hwBoard {
 
@@ -476,6 +476,14 @@ void Board::setServoPos(const std::vector<uint8_t> &ids,
     data.push_back(ids[i]);
     data.push_back(static_cast<uint8_t>(angles[i] & 0x00FF));
     data.push_back(static_cast<uint8_t>((angles[i] & 0xFF00) >> 8));
+  }
+  sendPkt(static_cast<uint8_t>(PktFunc::BUS_SERVO), data);
+}
+
+void Board::stopServo(const std::vector<uint8_t> &ids) {
+  std::vector<uint8_t> data;
+  for (uint8_t i = 0; i < ids.size(); i++) {
+    data.push_back(ids[i]);
   }
   sendPkt(static_cast<uint8_t>(PktFunc::BUS_SERVO), data);
 }

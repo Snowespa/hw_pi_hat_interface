@@ -23,6 +23,7 @@ endif()
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(std_msgs REQUIRED)
+find_package(hw_pi_hat_msgs REQUIRED)
 
 find_library(GPIOD_LIBRARY gpiod)
 if(NOT GPIOD_LIBRARY)
@@ -36,15 +37,14 @@ include_directories(
 )
 
 # Build library
-add_library(hwpihat STATIC src/hw-pi-hat-lib.cpp)
+add_library(hwpihat STATIC src/hw_pi_hat_lib.cpp)
 target_include_directories(hwpihat PUBLIC $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>)
 target_link_libraries(hwpihat PUBLIC pthread gpiodcxx)
 
 # Build node
-add_executable(my_node src/ros2-hw-pi-hat.cpp)
-target_include_directories(my_node PUBLIC $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include> ${std_msgs_INCLUDE_DIRS} ${rclcpp_INCLUDE_DIRS})
-target_link_libraries(my_node PRIVATE ${std_msgs_LIBRARIES} ${rclcpp_LIBRARIES} hwpihat)
-
+add_executable(my_node src/ros2_hw_pi_hat.cpp)
+target_include_directories(my_node PUBLIC $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include> ${std_msgs_INCLUDE_DIRS} ${hw_pi_hat_msgs_INCLUDE_DIRS} ${rclcpp_INCLUDE_DIRS})
+target_link_libraries(my_node PRIVATE ${std_msgs_LIBRARIES} ${hw_pi_hat_msgs_LIBRARIES} ${rclcpp_LIBRARIES} hwpihat)
 # Install the library and headers
 install(
     TARGETS my_node hwpihat 
@@ -60,6 +60,7 @@ install(
 )
 
 # Generate CMake config files for this library
+ament_export_dependencies(rosidl_default_runtime)
 ament_export_include_directories(include)
 ament_export_libraries(hwpihat)
 ament_export_dependencies(rclcpp gpiod)

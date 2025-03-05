@@ -1,15 +1,17 @@
-#include "ros2-hw-pi-hat/ros2-hw-pi-hat.hpp"
+#include "ros2_hw_pi_hat/ros2_hw_pi_hat.hpp"
 #include <cstdint>
-#include <iostream>
+#include <functional>
 #include <memory>
 #include <optional>
 #include <string>
 #include <vector>
 
-#include "hw-pi-hat-lib/hw-pi-hat-lib.hpp"
+#include "hw_pi_hat_lib/hw_pi_hat_lib.hpp"
+#include "hw_pi_hat_msgs/msg/servos.hpp"
 #include "rclcpp/logging.hpp"
 #include "rclcpp/message_info.hpp"
 #include "rclcpp/rclcpp.hpp"
+#include "std_msgs/msg/empty.hpp"
 #include "std_msgs/msg/u_int16.hpp"
 #include "std_msgs/msg/u_int16_multi_array.hpp"
 
@@ -47,6 +49,14 @@ Ros2HwPiHat::Ros2HwPiHat() : Node("ros2_hw_pi_hat_interface"), board() {
   vin_pub = this->create_publisher<std_msgs::msg::UInt16MultiArray>("vin", 10);
   vin_timer =
       this->create_wall_timer(50ms, std::bind(&Ros2HwPiHat::vin_cb, this));
+
+  stop_subscriber = this->create_subscription<std_msgs::msg::Empty>(
+      "stop", 10,
+      std::bind(&Ros2HwPiHat::stop_cb, this, std::placeholders::_1));
+
+  servo_subscriber = this->create_subscription<hw_pi_hat_msgs::msg::Servos>(
+      "set_servos_pos", 10,
+      std::bind(&Ros2HwPiHat::servo_cb, this, std::placeholders::_1));
 }
 
 Ros2HwPiHat::~Ros2HwPiHat() {}
@@ -130,26 +140,26 @@ void Ros2HwPiHat::vin_cb() {
   msg.data = vins;
   vin_pub->publish(msg);
 }
-/*class MinimalPublisher : public rclcpp::Node {*/
-/*public:*/
-/*  MinimalPublisher() : Node("minimal_publisher"), count_(0) {*/
-/*    publisher_ = this->create_publisher<std_msgs::msg::String>("topic", 10);*/
-/*    timer_ = this->create_wall_timer(*/
-/*        500ms, std::bind(&MinimalPublisher::timer_callback, this));*/
-/*  }*/
-/**/
-/*private:*/
-/*  void timer_callback() {*/
-/*    auto msg = std_msgs::msg::String();*/
-/*    msg.data = "Hello world! " + std::to_string(count_++);*/
-/*    RCLCPP_INFO(this->get_logger(), "Publishing: '%s'", msg.data.c_str());*/
-/*    publisher_->publish(msg);*/
-/*  }*/
-/*  rclcpp::TimerBase::SharedPtr timer_;*/
-/*  rclcpp::Publisher<std_msgs::msg::String>::SharedPtr publisher_;*/
-/*  size_t count_;*/
-/*  hwBoard::Board board;*/
-/*};*/
+
+void Ros2HwPiHat::stop_cb(const std_msgs::msg::Empty::SharedPtr _) {
+  board.stopServo(servos);
+}
+
+void Ros2HwPiHat::servo_cb(const hw_pi_hat_msgs::msg::Servos::SharedPtr msg) {
+  RCLCPP_INFO(this->get_logger(), "Recieved servo setting messge");
+  // Parse IDS
+  std::string id_str = "IDs: ";
+  for (const auto &id : msg->ids.data) {
+    id_str += std::to_string(id) + " ";
+  }
+  RCLCPP_INFO(this->get_logger(), "%s", id_str.c_str());
+
+  std::string value_str = "Positions: ";
+  for (const auto &pos : msg->positions.data) {
+    value_str += std::to_string(pos) + " ";
+  }
+  RCLCPP_INFO(this->get_logger(), "%s", value_str.c_str());
+}
 
 int main(int argc, char *argv[]) {
   rclcpp::init(argc, argv);
