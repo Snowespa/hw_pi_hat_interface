@@ -77,6 +77,25 @@ bool Board::openPort() {
   tty.c_cflag &= ~CSTOPB;
   tty.c_cflag &= ~CSIZE;
   tty.c_cflag |= CS8;
+  // Input flags:
+  // Disable newline to carriage return mapping
+  // Disabke XON/XOFF flow control
+  tty.c_iflag &= ~(ICRNL | IXON);
+
+  // Output flags:
+  // Disable post-processing of Output
+  // disable newline to carriage return mapping
+  tty.c_oflag &= ~(OPOST | ONLCR);
+
+  // Disables signal characters (Ctrl+C, Ctrl+Z).
+  // ICANON -> -icanon: Disables canonical mode (line buffering).
+  // IEXTEN -> -iexten: Disables extended input processing.
+  // ECHO -> -echo: Disables echo of input characters.
+  // ECHOE -> -echoe: Disables erasing of input characters.
+  // ECHOK -> -echok: Disables echoing of the kill character.
+  // ECHOCTL -> -echoctl: Disables echoing of control characters.
+  // ECHOKE -> -echoke: Disables visual erase for line kills.
+  tty.c_lflag &= ~(ISIG | ICANON | IEXTEN | ECHO | ECHOE | ECHOK | ECHOCTL | ECHOKE);
 
   int status;
   ioctl(fd, TIOCMGET, &status);
