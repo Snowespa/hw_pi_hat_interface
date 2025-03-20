@@ -17,6 +17,11 @@ else()
   set(CMAKE_BUILD_TYPE Release)
 endif()
 
+find_library(GPIOD_LIBRARY gpiod)
+if(NOT GPIOD_LIBRARY)
+  message(FATAL_ERROR "libgpiod not found")
+endif()
+
 set(SOURCES
     src/board.cpp
     src/main.cpp
