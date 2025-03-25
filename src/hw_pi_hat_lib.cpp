@@ -99,7 +99,8 @@ bool Board::openPort() {
   // ECHOK -> -echok: Disables echoing of the kill character.
   // ECHOCTL -> -echoctl: Disables echoing of control characters.
   // ECHOKE -> -echoke: Disables visual erase for line kills.
-  tty.c_lflag &= ~(ISIG | ICANON | IEXTEN | ECHO | ECHOE | ECHOK | ECHOCTL | ECHOKE);
+  tty.c_lflag &=
+      ~(ISIG | ICANON | IEXTEN | ECHO | ECHOE | ECHOK | ECHOCTL | ECHOKE);
 
   int status;
   ioctl(fd, TIOCMGET, &status);
@@ -252,7 +253,12 @@ void Board::sendPkt(const uint8_t func, const std::vector<uint8_t> &data) {
   buf.insert(buf.end(), data.begin(), data.end());
   uint8_t crc8 = checksumCRC8(std::vector<uint8_t>(buf.begin() + 2, buf.end()));
   buf.push_back(crc8);
-  write(fd, buf.data(), sizeof(buf));
+  ssize_t written = write(fd, buf.data(), sizeof(buf));
+  if (written < 0) {
+    logf << "[ERROR]: writting to file failed" << std::endl;
+    return;
+  }
+  return;
 }
 
 std::vector<uint8_t> Board::servoRead(const uint8_t id, const uint8_t cmd) {
