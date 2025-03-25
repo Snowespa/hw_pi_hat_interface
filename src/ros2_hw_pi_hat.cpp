@@ -11,6 +11,8 @@
 #include "rclcpp/logging.hpp"
 #include "rclcpp/message_info.hpp"
 #include "rclcpp/rclcpp.hpp"
+
+#include "sensor_msgs/msg/joint_state.hpp"
 #include "std_msgs/msg/empty.hpp"
 #include "std_msgs/msg/int16_multi_array.hpp"
 #include "std_msgs/msg/u_int16.hpp"
@@ -43,6 +45,8 @@ Ros2HwPiHat::Ros2HwPiHat() : Node("ros2_hw_pi_hat_interface"), board() {
 
   pos_pub =
       this->create_publisher<std_msgs::msg::Int16MultiArray>("position", 10);
+  joint_state_pub =
+      this->create_publisher<sensor_msgs::msg::JointState>("joint_states", 10);
   pos_timer =
       this->create_wall_timer(50ms, std::bind(&Ros2HwPiHat::pos_cb, this));
 
@@ -97,12 +101,15 @@ void Ros2HwPiHat::temp_cb() {
 
 void Ros2HwPiHat::pos_cb() {
   std::vector<int16_t> positions;
+  std::vector<float> rads;
   // Retrive temperatures
   for (std::vector<uint8_t>::iterator it = servos.begin(); it != servos.end();
        it++) {
     std::optional<int16_t> pos = board.getServoPos(*it);
-    if (pos)
+    if (pos) {
       positions.push_back(pos.value());
+      rads.push_back((float)pos.value() * 0.24 * 3.14 / 180.);
+    }
   }
   if (positions.size() != servos.size()) {
     RCLCPP_INFO(this->get_logger(), "Could not retrive all the positions");
@@ -113,9 +120,15 @@ void Ros2HwPiHat::pos_cb() {
   msg.layout.dim[0].size = positions.size();
   msg.layout.dim[0].label = "positions";
   msg.layout.dim[0].stride = 1;
-
   msg.data = positions;
+
+  auto rad_msg = sensor_msgs::msg::JointState();
+  rad_msg.header.stamp = this->get_clock()->now();
+  rad_msg.name = {"joint1", "joint2", "joint3", "joint4", "joint5", "joint6"};
+  rad_msg.position = {rads[0], rads[1], rads[2], rads[3], rads[4], rads[5]};
+
   pos_pub->publish(msg);
+  joint_state_pub->publish(rad_msg);
 }
 
 void Ros2HwPiHat::vin_cb() {
@@ -141,7 +154,8 @@ void Ros2HwPiHat::vin_cb() {
   vin_pub->publish(msg);
 }
 
-void Ros2HwPiHat::stop_cb(const std_msgs::msg::Empty::SharedPtr _) {
+void Ros2HwPiHat::stop_cb(const std_msgs::msg::Empty::SharedPtr msg) {
+  (void)msg;
   board.stopServo(servos);
 }
 

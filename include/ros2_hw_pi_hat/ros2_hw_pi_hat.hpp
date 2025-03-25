@@ -5,6 +5,8 @@
 #include "hw_pi_hat_msgs/msg/servos.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp/timer.hpp"
+
+#include "sensor_msgs/msg/joint_state.hpp"
 #include "std_msgs/msg/empty.hpp"
 #include "std_msgs/msg/int16_multi_array.hpp"
 #include "std_msgs/msg/u_int16.hpp"
@@ -31,6 +33,7 @@ private:
   rclcpp::Publisher<std_msgs::msg::UInt8MultiArray>::SharedPtr temp_pub;
   rclcpp::TimerBase::SharedPtr temp_timer;
   rclcpp::Publisher<std_msgs::msg::Int16MultiArray>::SharedPtr pos_pub;
+  rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr joint_state_pub;
   rclcpp::TimerBase::SharedPtr pos_timer;
   rclcpp::Publisher<std_msgs::msg::UInt16MultiArray>::SharedPtr vin_pub;
   rclcpp::TimerBase::SharedPtr vin_timer;

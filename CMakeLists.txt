@@ -23,6 +23,7 @@ endif()
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(std_msgs REQUIRED)
+find_package(sensor_msgs REQUIRED)
 find_package(hw_pi_hat_msgs REQUIRED)
 
 find_library(GPIOD_LIBRARY gpiod)
@@ -43,8 +44,8 @@ target_link_libraries(hwpihat PUBLIC pthread gpiodcxx)
 
 # Build node
 add_executable(my_node src/ros2_hw_pi_hat.cpp)
-target_include_directories(my_node PUBLIC $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include> ${std_msgs_INCLUDE_DIRS} ${hw_pi_hat_msgs_INCLUDE_DIRS} ${rclcpp_INCLUDE_DIRS})
-target_link_libraries(my_node PRIVATE ${std_msgs_LIBRARIES} ${hw_pi_hat_msgs_LIBRARIES} ${rclcpp_LIBRARIES} hwpihat)
+target_include_directories(my_node PUBLIC $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include> ${std_msgs_INCLUDE_DIRS} ${sensor_msgs_INCLUDE_DIRS} ${hw_pi_hat_msgs_INCLUDE_DIRS} ${rclcpp_INCLUDE_DIRS})
+target_link_libraries(my_node PRIVATE ${std_msgs_LIBRARIES} ${sensor_msgs_LIBRARIES} ${hw_pi_hat_msgs_LIBRARIES} ${rclcpp_LIBRARIES} hwpihat)
 # Install the library and headers
 install(
     TARGETS my_node hwpihat 
