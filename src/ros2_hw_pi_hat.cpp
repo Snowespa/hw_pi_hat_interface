@@ -124,7 +124,8 @@ void Ros2HwPiHat::pos_cb() {
 
   auto rad_msg = sensor_msgs::msg::JointState();
   rad_msg.header.stamp = this->get_clock()->now();
-  rad_msg.name = {"joint1", "joint2", "joint3", "joint4", "joint5", "joint6"};
+  rad_msg.name = {"leg1_joint1", "leg1_joint2", "leg1_joint3",
+                  "leg2_joint1", "leg2_joint2", "leg2_joint3"};
   rad_msg.position = {rads[0], rads[1], rads[2], rads[3], rads[4], rads[5]};
 
   pos_pub->publish(msg);
