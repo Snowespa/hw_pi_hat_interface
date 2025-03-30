@@ -12,9 +12,9 @@ This repo contains a c++ implementation of an interface between the raspberry pi
 
 - [x] keep only the last message in the queues.
 - [x] code and test the servo reading and writing.
-- [ ] wrap the board in a ros node.
+- [x] wrap the board in a ros node.
 
 ## BUGS
 
 - [x] Understand why after some time the c++ rcv pkt fails.
-- [ ] Why were the libraries corrupted.
+- [x] ~Why were the libraries corrupted.~ Poor quality sd card

@@ -31,8 +31,18 @@ add_executable(board_test ${SOURCES})
 # Add include directories
 target_include_directories(board_test
     PRIVATE ${CMAKE_SOURCE_DIR}/include
-    PRIVATE ${CMAKE_SOURCE_DIR}/third_party)
-
+    PRIVATE ${CMAKE_SOURCE_DIR}/third_party
+)
 
 target_link_libraries(board_test pthread gpiodcxx)
+
+
+add_executable(startup src/board.cpp src/startup.cpp)
+target_include_directories(startup
+  PRIVATE ${CMAKE_SOURCE_DIR}/include
+  PRIVATE ${CMAKE_SOURCE_DIR}/third_party
+)
+
+target_link_libraries(startup pthread gpiodcxx)
+
 
