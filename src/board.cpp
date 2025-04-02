@@ -7,6 +7,7 @@
 #include <fstream>
 #include <gpiod.hpp>
 #include <mutex>
+#include <stdexcept>
 #include <sys/ioctl.h>
 #include <sys/select.h>
 #include <sys/stat.h>
@@ -210,6 +211,12 @@ void Board::rcvPkt() {
                 logf << "[LOG]: got sys packet." << std::endl;
                 std::lock_guard<std::mutex> lockSys(sysM);
                 sysQ = pkt_data;
+                break;
+              }
+              case PktFunc::IMU: {
+                logf << "[LOG]: got imu packet." << std::endl;
+                std::lock_guard<std::mutex> lockIMU(imuM);
+                imuQ = pkt_data;
                 break;
               }
               case PktFunc::BUS_SERVO: {
@@ -519,6 +526,42 @@ std::optional<uint16_t> Board::getBattery() {
 
   logf << "[ERROR]: Did not recognize the message!" << std::endl;
   return std::nullopt;
+}
+
+float bytesToFloats(const std::vector<uint8_t> &vec, size_t offset) {
+  if (offset + 4 > vec.size()){
+    throw std::out_of_range("Not enough bytes to extract float");
+  }
+  float value;
+  std::memcpy(&value, &vec[offset], sizeof(float));
+  return value;
+}
+
+std::optional<float*> Board::getIMU(){
+  static float imu_data[6];
+  if (!rcvSerial) {
+    logf << "[ERROR]: Enable Message Reception First!" << std::endl;
+    return std::nullopt;
+  }
+
+  if (!imuQ) {
+    logf << "[ERROR]: No IMU message available!" << std::endl;
+    return std::nullopt;
+  }
+
+  std::lock_guard<std::mutex> lockIMU(imuM);
+  const std::vector<uint8_t> data = imuQ.value();
+  imuQ.reset();
+
+  if (data.size() != sizeof(float)*6){
+    logf << "[ERROR]: imu message doesn't contain 6 values!" << std::endl;
+    return std::nullopt;
+  }
+
+  for (size_t i=0; i < 6; i++){
+    bytesToFloats(data, i*4);
+  }
+  return imu_data;
 }
 
 std::optional<std::pair<uint8_t, uint8_t>> Board::getButton() {

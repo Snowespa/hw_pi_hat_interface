@@ -13,6 +13,10 @@ This repo contains a c++ implementation of an interface between the raspberry pi
 - [x] keep only the last message in the queues.
 - [x] code and test the servo reading and writing.
 - [x] wrap the board in a ros node.
+- [ ] implement IMU reading.
+    - [ ] Find out the message type for the IMU in the FD.
+    - [ ] parse the IMU message.
+    - [ ] implement the code in c++.
 
 ## BUGS
 

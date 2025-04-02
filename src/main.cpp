@@ -156,6 +156,17 @@ void info(Board &board) {
   for (std::vector<uint8_t>::iterator it = ids.begin(); it != ids.end(); it++) {
     board.setServoTorque(*it, true);
   }
+  std::cout << "IMU: " << std::endl;
+  std::optional<float*> imu = board.getIMU();
+
+  if (!imu) {
+    std::cout << "[ERROR] Could not read IMU entry" << std::endl;
+  } else {
+    for (size_t i = 0; i < 6; i++) {
+      std::cout << imu.value()[i];
+    }
+    std::cout << std::endl;
+  }
 }
 
 void actionB() {
