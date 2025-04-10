@@ -96,7 +96,8 @@ bool Board::openPort() {
   // ECHOK -> -echok: Disables echoing of the kill character.
   // ECHOCTL -> -echoctl: Disables echoing of control characters.
   // ECHOKE -> -echoke: Disables visual erase for line kills.
-  tty.c_lflag &= ~(ISIG | ICANON | IEXTEN | ECHO | ECHOE | ECHOK | ECHOCTL | ECHOKE);
+  tty.c_lflag &=
+      ~(ISIG | ICANON | IEXTEN | ECHO | ECHOE | ECHOK | ECHOCTL | ECHOKE);
 
   int status;
   ioctl(fd, TIOCMGET, &status);
@@ -529,7 +530,7 @@ std::optional<uint16_t> Board::getBattery() {
 }
 
 float bytesToFloats(const std::vector<uint8_t> &vec, size_t offset) {
-  if (offset + 4 > vec.size()){
+  if (offset + 4 > vec.size()) {
     throw std::out_of_range("Not enough bytes to extract float");
   }
   float value;
@@ -537,7 +538,7 @@ float bytesToFloats(const std::vector<uint8_t> &vec, size_t offset) {
   return value;
 }
 
-std::optional<float*> Board::getIMU(){
+std::optional<float *> Board::getIMU() {
   static float imu_data[6];
   if (!rcvSerial) {
     logf << "[ERROR]: Enable Message Reception First!" << std::endl;
@@ -553,13 +554,13 @@ std::optional<float*> Board::getIMU(){
   const std::vector<uint8_t> data = imuQ.value();
   imuQ.reset();
 
-  if (data.size() != sizeof(float)*6){
+  if (data.size() != sizeof(float) * 6) {
     logf << "[ERROR]: imu message doesn't contain 6 values!" << std::endl;
     return std::nullopt;
   }
 
-  for (size_t i=0; i < 6; i++){
-    bytesToFloats(data, i*4);
+  for (size_t i = 0; i < 6; i++) {
+    imu_data[i] = bytesToFloats(data, i * 4);
   }
   return imu_data;
 }
