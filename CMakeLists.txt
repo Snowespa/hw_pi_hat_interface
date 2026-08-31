@@ -46,3 +46,12 @@ target_include_directories(startup
 target_link_libraries(startup pthread gpiodcxx)
 
 
+add_executable(test_move src/board.cpp src/move_test.cpp)
+target_include_directories(test_move
+  PRIVATE ${CMAKE_SOURCE_DIR}/include
+  PRIVATE ${CMAKE_SOURCE_DIR}/third_party
+)
+
+target_link_libraries(test_move pthread gpiodcxx)
+
+

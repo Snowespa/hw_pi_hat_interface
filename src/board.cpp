@@ -56,7 +56,7 @@ bool Board::openPort() {
   logf << "[LOG]: Opening serial port and initializing GPIO" << std::endl;
   fd = open(dev.c_str(), O_RDWR | O_NOCTTY);
   if (fd == -1) {
-    logf << "[ERROR]: could not open serial port: " << strerror(errno)
+    logf << "[ERROR]: could not open serial port " << dev << " : " << strerror(errno)
          << std::endl;
     return false;
   }
@@ -261,7 +261,7 @@ void Board::sendPkt(const uint8_t func, const std::vector<uint8_t> &data) {
 
 std::vector<uint8_t> Board::servoRead(const uint8_t id, const uint8_t cmd) {
   if (!rcvSerial) {
-    logf << "[ERROR]: enable packet reception first!" << std::endl;
+    logf << "[ERROR|Servo Read]: enable packet reception first!" << std::endl;
     return {};
   }
 
@@ -275,7 +275,7 @@ std::vector<uint8_t> Board::servoRead(const uint8_t id, const uint8_t cmd) {
     lock_status = servoCV.wait_for(lockServo, std::chrono::milliseconds(10));
     // No packet recived in the time interval
     if (lock_status == std::cv_status::timeout) {
-      logf << "[ERROR]: waited for an element for too long!" << std::endl;
+      logf << "[ERROR|Servo Read]: waited for an element for too long!" << std::endl;
       return {};
     }
   }
@@ -285,14 +285,14 @@ std::vector<uint8_t> Board::servoRead(const uint8_t id, const uint8_t cmd) {
   servoQ.reset();
 
   if (rcvData.size() < 3) {
-    logf << "[ERROR]: Vector should be of size 3, got " << rcvData.size() << "!"
+    logf << "[ERROR|Servo Read]: Vector should be of size 3, got " << rcvData.size() << "!"
          << std::endl;
     return {};
   }
 
   // Succes flag, 0 if succes.
   if (static_cast<int8_t>(rcvData[2]) != 0) {
-    logf << "[ERROR]: Request failed!" << std::endl;
+    logf << "[ERROR|Servo Read]: Request failed!" << std::endl;
     return {};
   }
   return std::vector<uint8_t>(rcvData.begin() + 3, rcvData.end());
@@ -328,7 +328,7 @@ void Board::rcvGPIO() {
 
     request.release();
   } catch (const std::exception &e) {
-    logf << "[ERROR]: Failed to aquire GPIO Pins: " << e.what() << std::endl;
+    logf << "[ERROR|GPIO Read]: Failed to aquire GPIO Pins: " << e.what() << std::endl;
   }
 }
 
@@ -439,7 +439,7 @@ void Board::setServoTorque(const uint8_t id, const bool enable) {
   uint8_t mode = enable ? 0x0B : 0x0C;
   std::vector<uint8_t> data = {mode, id};
   sendPkt(static_cast<uint8_t>(PktFunc::BUS_SERVO), data);
-  std::this_thread::sleep_for(std::chrono::milliseconds(200));
+  // std::this_thread::sleep_for(std::chrono::milliseconds(200));
 }
 
 void Board::setServoId(const uint8_t old_id, const uint8_t new_id) {
@@ -507,12 +507,12 @@ void Board::setServoPos(const std::vector<uint8_t> &ids,
 /* GETTERS */
 std::optional<uint16_t> Board::getBattery() {
   if (!rcvSerial) {
-    logf << "[ERROR]: Enable Message Reception First!" << std::endl;
+    logf << "[ERROR|Battery Reading]: Enable Message Reception First!" << std::endl;
     return std::nullopt;
   }
 
   if (!sysQ) {
-    logf << "[ERROR]: No Battery message available!" << std::endl;
+    logf << "[ERROR|Battery Reading]: No Battery message available!" << std::endl;
     return std::nullopt;
   }
 
@@ -525,7 +525,7 @@ std::optional<uint16_t> Board::getBattery() {
     return battery;
   }
 
-  logf << "[ERROR]: Did not recognize the message!" << std::endl;
+  logf << "[ERROR|Battery Reading]: Did not recognize the message!" << std::endl;
   return std::nullopt;
 }
 
@@ -541,12 +541,12 @@ float bytesToFloats(const std::vector<uint8_t> &vec, size_t offset) {
 std::optional<float *> Board::getIMU() {
   static float imu_data[6];
   if (!rcvSerial) {
-    logf << "[ERROR]: Enable Message Reception First!" << std::endl;
+    logf << "[ERROR|Read IMU]: Enable Message Reception First!" << std::endl;
     return std::nullopt;
   }
 
   if (!imuQ) {
-    logf << "[ERROR]: No IMU message available!" << std::endl;
+    logf << "[ERROR|Read IMU]: No IMU message available!" << std::endl;
     return std::nullopt;
   }
 
@@ -555,7 +555,7 @@ std::optional<float *> Board::getIMU() {
   imuQ.reset();
 
   if (data.size() != sizeof(float) * 6) {
-    logf << "[ERROR]: imu message doesn't contain 6 values!" << std::endl;
+    logf << "[ERROR|Read IMU]: imu message doesn't contain 6 values!" << std::endl;
     return std::nullopt;
   }
 
@@ -567,12 +567,12 @@ std::optional<float *> Board::getIMU() {
 
 std::optional<std::pair<uint8_t, uint8_t>> Board::getButton() {
   if (!rcvIO) {
-    logf << "[ERROR]: Enable Message Reception First!" << std::endl;
+    logf << "[ERROR|Read Button]: Enable Message Reception First!" << std::endl;
     return std::nullopt;
   }
 
   if (!keyQ) {
-    logf << "[ERROR]: No Button message available!" << std::endl;
+    logf << "[ERROR|Read Button]: No Button message available!" << std::endl;
     return std::nullopt;
   }
 

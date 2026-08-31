@@ -51,7 +51,7 @@ public:
    *    - const int baud_rate: the board baud_rate. (default B1000000)
    *    - const int timeout: the timeout for each message.
    */
-  Board(const std::string &device = "/dev/ttyAMA0",
+  Board(const std::string &device = "/dev/serial0",
         const std::string &chip = "/dev/gpiochip4", int baud_rate = B1000000,
         int timeout = 500);
 

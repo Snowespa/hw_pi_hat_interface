@@ -153,6 +153,7 @@ void info(Board &board) {
   std::cout << "IDs detected: " << ids.size() << std::endl;
   displayServoData(ids, offsets, positions, angles_lims, vins_lims, vins, temps,
                    temps_lims, torques);
+  std::cout << "Reset servo torque" << std::endl;
   for (std::vector<uint8_t>::iterator it = ids.begin(); it != ids.end(); it++) {
     board.setServoTorque(*it, true);
   }
@@ -240,7 +241,6 @@ void showMenu() {
 int main(int argc, char **argv) {
   Board board;
   board.setRecieve(true);
-  sleep(1);
 
   char choice;
   while (true) {
