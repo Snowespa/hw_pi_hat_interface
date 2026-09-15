@@ -53,7 +53,7 @@ public:
    *    - const int timeout: the timeout for each message.
    */
   Board(const std::string &device = "/dev/serial0",
-        const std::string &chip = "/dev/gpiochip4", int baud_rate = B1000000,
+        const std::string &chip = "/dev/gpiochip4",
         int timeout = 500);
 
   /*
@@ -420,6 +420,8 @@ private:
   void initKey(key_state *state);
 
   /* ATTRIBUTES */
+  std::mutex txM; // mutex on the uart
+
   std::optional<std::vector<uint8_t>> sysQ;
   std::mutex sysM;
 

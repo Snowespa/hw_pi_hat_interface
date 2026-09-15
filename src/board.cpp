@@ -27,9 +27,9 @@
 
 #include "../include/hwPkt.hpp"
 
-Board::Board(const std::string &device, const std::string &chip, int baud_rate,
+Board::Board(const std::string &device, const std::string &chip,
              int timeout)
-    : dev(device), br(baud_rate), timeout(timeout), fd(-1), rcvSerial(false),
+    : dev(device), br(B1000000), timeout(timeout), fd(-1), rcvSerial(false),
       chip(chip), rcvIO(false) {
   logf.open("log.txt");
   openPort();
@@ -242,7 +242,7 @@ void Board::rcvPkt() {
       }
     } else if (result == 0) {
       // Timeout reached, no data recived
-      logf << "[ERROR]: Timeout reached!" << std::endl;
+      // logf << "[ERROR]: Timeout reached!" << std::endl;
       continue;
     } else {
       logf << "[ERROR]: Error in select()!" << std::endl;
@@ -251,6 +251,7 @@ void Board::rcvPkt() {
 }
 
 void Board::sendPkt(const uint8_t func, const std::vector<uint8_t> &data) {
+  std::lock_guard<std::mutex> lock(txM); // make sure only one request can be sent on the fd at a time.
   std::vector<uint8_t> buf{0xAA, 0x55, func};
 
   buf.push_back(static_cast<uint8_t>(data.size()));
@@ -279,6 +280,7 @@ std::vector<uint8_t> Board::servoRead(const uint8_t id, const uint8_t cmd) {
   // Wait until element is available to consume
   std::cv_status lock_status;
   std::unique_lock<std::mutex> lockServo(servoM);
+  servoQ.reset(); // clear the current response if any is pending.
   while (!servoQ) {
     lock_status = servoCV.wait_for(lockServo, std::chrono::milliseconds(10));
     // No packet recived in the time interval
@@ -388,11 +390,21 @@ void Board::initKey(key_state *state) {
 
 /* SETTERS */
 void Board::setRecieve(const bool enable) {
-  rcvSerial = enable;
-  rcvIO = enable;
   if (enable) {
+    if (rcvSerial) // don't create two threads if one already exists.
+      return;
+    rcvSerial = true;
+    rcvIO = true;
     rcvSerialThread = std::thread(&Board::rcvPkt, this);
     rcvIOThread = std::thread(&Board::rcvGPIO, this);
+  } else {
+    rcvSerial = false;
+    rcvIO = false;
+    // join the threads.
+    if (rcvSerialThread.joinable())
+      rcvSerialThread.join();
+    if (rcvIOThread.joinable())
+      rcvIOThread.join();
   }
 }
 
@@ -499,6 +511,15 @@ void Board::setServoTempLim(const uint8_t id, const int8_t temp) {
 void Board::setServoPos(const std::vector<uint8_t> &ids,
                         const std::vector<uint16_t> &angles,
                         const float duration) {
+
+  if (ids.empty())
+    return;
+
+  if (ids.size() != angles.size()) {
+    throw std::invalid_argument(
+        "ids and angles must have the same size");
+  }
+
   uint16_t dur = static_cast<uint16_t>(duration * 1000);
   std::vector<uint8_t> data{
     0x01,
@@ -507,7 +528,7 @@ void Board::setServoPos(const std::vector<uint8_t> &ids,
     static_cast<uint8_t>(angles.size())
   };
 
-  for (int i = 0; i < angles.size(); i++) {
+  for (size_t i = 0; i < angles.size(); i++) {
     data.push_back(ids[i]);
     data.push_back(static_cast<uint8_t>(angles[i] & 0x00FF));
     data.push_back(static_cast<uint8_t>((angles[i] & 0xFF00) >> 8));
