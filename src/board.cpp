@@ -101,7 +101,7 @@ bool Board::openPort() {
 
   int status;
   ioctl(fd, TIOCMGET, &status);
-  status &= ~(TIOCM_DTR, TIOCM_RTS);
+  status &= ~(TIOCM_DTR | TIOCM_RTS);
   ioctl(fd, TIOCMSET, &status);
 
   tty.c_cc[VTIME] = timeout / 100;
@@ -252,11 +252,19 @@ void Board::rcvPkt() {
 
 void Board::sendPkt(const uint8_t func, const std::vector<uint8_t> &data) {
   std::vector<uint8_t> buf{0xAA, 0x55, func};
+
   buf.push_back(static_cast<uint8_t>(data.size()));
   buf.insert(buf.end(), data.begin(), data.end());
+
   uint8_t crc8 = checksumCRC8(std::vector<uint8_t>(buf.begin() + 2, buf.end()));
   buf.push_back(crc8);
-  write(fd, buf.data(), sizeof(buf));
+  ssize_t written = write(fd, buf.data(), buf.size());
+
+  if (written < 0) {
+    logf << "[ERROR]: UART write faile: " << strerror(errno) << std::endl;
+  } else if (static_cast<size_t>(written) != buf.size()) {
+    logf << "[ERROR]: Partial UART write: " << written << "/" << buf.size() << " bytes" << std::endl;
+  }
 }
 
 std::vector<uint8_t> Board::servoRead(const uint8_t id, const uint8_t cmd) {
@@ -492,9 +500,12 @@ void Board::setServoPos(const std::vector<uint8_t> &ids,
                         const std::vector<uint16_t> &angles,
                         const float duration) {
   uint16_t dur = static_cast<uint16_t>(duration * 1000);
-  std::vector<uint8_t> data{0x01, static_cast<uint8_t>(dur & 0x00FF),
-                            static_cast<uint8_t>((dur & 0xFF00) >> 8),
-                            static_cast<uint8_t>(angles.size())};
+  std::vector<uint8_t> data{
+    0x01,
+    static_cast<uint8_t>(dur & 0x00FF),
+    static_cast<uint8_t>((dur & 0xFF00) >> 8),
+    static_cast<uint8_t>(angles.size())
+  };
 
   for (int i = 0; i < angles.size(); i++) {
     data.push_back(ids[i]);

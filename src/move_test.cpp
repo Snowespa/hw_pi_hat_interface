@@ -25,27 +25,27 @@ int main(int argc, char *argv[]) {
     Board board;
     board.setRecieve(true);
 
-    // std::vector<uint8_t> ids{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11};
+    // Test move all servos to 500 position
+    std::vector<uint8_t> ids{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11};
+    std::vector<uint16_t> angles{500, 500, 500, 500, 500, 500, 500, 500, 500, 500, 500, 500};
+    board.setServoPos(ids, angles, 0);
     
-    // std::vector<int16_t> positions = read_positions(board, ids);
-    // print_pos(ids, positions);
-    std::vector<uint8_t> ids_hip{0, 3, 6, 9};
-    std::vector<uint16_t> angles_hip{500, 500, 500, 500};
-    board.setServoPos(ids_hip, angles_hip, 0);
+    // Move 4 servos at a time.
+    // std::vector<uint8_t> ids_hip{0, 3, 6, 9};
+    // std::vector<uint16_t> angles_hip{500, 500, 500, 500};
+    // board.setServoPos(ids_hip, angles_hip, 0);
 
-    std::vector<uint8_t> ids_knee{1, 4, 7, 10};
-    std::vector<uint16_t> angles_knee{500, 500, 500, 500};
-    board.setServoPos(ids_knee, angles_knee, 0);
+    // std::vector<uint8_t> ids_knee{1, 4, 7, 10};
+    // std::vector<uint16_t> angles_knee{500, 500, 500, 500};
+    // board.setServoPos(ids_knee, angles_knee, 0);
 
-    std::vector<uint8_t> ids_ankle{2, 5, 8, 11};
-    std::vector<uint16_t> angles_ankle{500, 500, 500, 500};
-    board.setServoPos(ids_ankle, angles_ankle, 0);
+    // std::vector<uint8_t> ids_ankle{2, 5, 8, 11};
+    // std::vector<uint16_t> angles_ankle{500, 500, 500, 500};
+    // board.setServoPos(ids_ankle, angles_ankle, 0);
 
-    // positions = read_positions(board, ids);
-    // print_pos(ids, positions);
-
-    // std::cout << "Reset servo torque" << std::endl;
-    // for (std::vector<uint8_t>::iterator it = ids.begin(); it != ids.end(); it++) {
-    //     board.setServoTorque(*it, true);
-    // }
+    sleep(2);
+    std::cout << "Reset servo torque" << std::endl;
+    for (std::vector<uint8_t>::iterator it = ids.begin(); it != ids.end(); it++) {
+        board.setServoTorque(*it, true);
+    }
 }
