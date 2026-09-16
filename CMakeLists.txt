@@ -71,6 +71,6 @@ target_include_directories(hw_pi_hat_interface PRIVATE ${CMAKE_SOURCE_DIR}/inclu
 target_link_libraries(hw_pi_hat_interface pthread gpiodcxx)
 install(TARGETS hw_pi_hat_interface
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-    PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+    PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/hw_pi_hat_interface)
 install(FILES ${CMAKE_BINARY_DIR}/hw_pi_hat_interface.pc
     DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/pkgconfig)
