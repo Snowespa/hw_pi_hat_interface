@@ -27,17 +27,25 @@ set(SOURCES
     src/main.cpp
 )
 
-add_executable(board_test ${SOURCES})
+add_executable(monitor_board ${SOURCES})
 # Add include directories
-target_include_directories(board_test
+
+if(DEBUG_MODE)
+  target_compile_definitions(monitor_board PRIVATE HW_DEBUG_LOG=1)
+endif()
+
+target_include_directories(monitor_board
     PRIVATE ${CMAKE_SOURCE_DIR}/include
     PRIVATE ${CMAKE_SOURCE_DIR}/third_party
 )
 
-target_link_libraries(board_test pthread gpiodcxx)
+target_link_libraries(monitor_board pthread gpiodcxx)
 
 
 add_executable(startup src/board.cpp src/startup.cpp)
+if(DEBUG_MODE)
+  target_compile_definitions(startup PRIVATE HW_DEBUG_LOG=1)
+endif()
 target_include_directories(startup
   PRIVATE ${CMAKE_SOURCE_DIR}/include
   PRIVATE ${CMAKE_SOURCE_DIR}/third_party
@@ -45,13 +53,4 @@ target_include_directories(startup
 
 target_link_libraries(startup pthread gpiodcxx)
 
-
-add_executable(test_move src/board.cpp src/move_test.cpp)
-target_include_directories(test_move
-  PRIVATE ${CMAKE_SOURCE_DIR}/include
-  PRIVATE ${CMAKE_SOURCE_DIR}/third_party
-)
-
-target_link_libraries(test_move pthread gpiodcxx)
-
-
+# add_library(hw_pi_hat_interface src/board.cpp)

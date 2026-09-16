@@ -52,7 +52,11 @@ Board::~Board() {
 
 /* PRIVATE FUNCTIONS */
 bool Board::openPort() {
-  logf << "[LOG]: Opening serial port and initializing GPIO" << std::endl;
+#ifdef HW_DEBUG_LOG
+  logf << "[LOG]: Opening serial port and initializing GPIO in Debug mode." << std::endl;
+#else
+  logf << "[LOG]: Opening serial port and initializing GPIO." << std::endl;
+#endif
   fd = open(dev.c_str(), O_RDWR | O_NOCTTY);
   if (fd == -1) {
     logf << "[ERROR]: could not open serial port " << dev << " : " << strerror(errno)
@@ -146,7 +150,9 @@ void Board::rcvPkt() {
   fcntl(fd, F_SETFL, ~O_NONBLOCK);
 
   fd_set read_fds;
+#ifdef HW_DEBUG_LOG
   logf << "[LOG]: Start Serial Thread." << std::endl;
+#endif
   struct timeval timeout;
   while (rcvSerial) {
     FD_ZERO(&read_fds);
@@ -198,7 +204,9 @@ void Board::rcvPkt() {
               break;
             case PktContState::CHECKSUM:
               if (checksumCRC8(frame) != byte) {
+#ifdef HW_DEBUG_LOG
                 logf << "[ERROR]: Checksum Failed!" << std::endl;
+#endif
                 frame.clear();
                 state = PktContState::STARTBYTE0;
                 break;
@@ -207,20 +215,26 @@ void Board::rcvPkt() {
               std::vector<uint8_t> pkt_data(frame.begin() + 2, frame.end());
               switch (func) {
               case PktFunc::SYS: {
+#ifdef HW_DEBUG_LOG
                 logf << "[LOG]: got sys packet." << std::endl;
+#endif
                 std::lock_guard<std::mutex> lockSys(sysM);
                 sysQ = pkt_data;
                 break;
               }
               case PktFunc::IMU: {
+#ifdef HW_DEBUG_LOG
                 logf << "[LOG]: got imu packet." << std::endl;
+#endif
                 std::lock_guard<std::mutex> lockIMU(imuM);
                 imuQ = pkt_data;
                 break;
               }
               case PktFunc::BUS_SERVO: {
                 // Aquire lock on servoQ to populate it.
+#ifdef HW_DEBUG_LOG
                 logf << "[LOG]: got servo packet." << std::endl;
+#endif
                 std::lock_guard<std::mutex> lockServo(servoM);
                 servoQ = pkt_data;
                 // Notify the waiting process.
@@ -228,7 +242,9 @@ void Board::rcvPkt() {
                 break;
               }
               default:
+#ifdef HW_DEBUG_LOG
                 logf << "[ERROR]: Unknown packet type!" << std::endl;
+#endif
                 break;
               }
               frame.clear();
@@ -240,10 +256,14 @@ void Board::rcvPkt() {
       }
     } else if (result == 0) {
       // Timeout reached, no data recived
-      // logf << "[ERROR]: Timeout reached!" << std::endl;
+#ifdef HW_DEBUG_LOG
+      logf << "[ERROR]: Timeout reached!" << std::endl;
+#endif
       continue;
     } else {
+#ifdef HW_DEBUG_LOG
       logf << "[ERROR]: Error in select()!" << std::endl;
+#endif
     }
   }
 }
@@ -264,15 +284,21 @@ void Board::sendPkt(const uint8_t func, const std::vector<uint8_t> &data) {
   ssize_t written = write(fd, buf.data(), buf.size());
 
   if (written < 0) {
+#ifdef HW_DEBUG_LOG
     logf << "[ERROR]: UART write faile: " << strerror(errno) << std::endl;
+#endif
   } else if (static_cast<size_t>(written) != buf.size()) {
+#ifdef HW_DEBUG_LOG
     logf << "[ERROR]: Partial UART write: " << written << "/" << buf.size() << " bytes" << std::endl;
+#endif
   }
 }
 
 std::vector<uint8_t> Board::servoRead(const uint8_t id, const uint8_t cmd) {
   if (!rcvSerial) {
+#ifdef HW_DEBUG_LOG
     logf << "[ERROR|Servo Read]: enable packet reception first!" << std::endl;
+#endif
     return {};
   }
 
@@ -286,7 +312,9 @@ std::vector<uint8_t> Board::servoRead(const uint8_t id, const uint8_t cmd) {
     lock_status = servoCV.wait_for(lockServo, std::chrono::milliseconds(10));
     // No packet recived in the time interval
     if (lock_status == std::cv_status::timeout) {
+#ifdef HW_DEBUG_LOG
       logf << "[ERROR|Servo Read]: waited for an element for too long!" << std::endl;
+#endif
       return {};
     }
   }
@@ -296,14 +324,18 @@ std::vector<uint8_t> Board::servoRead(const uint8_t id, const uint8_t cmd) {
   servoQ.reset();
 
   if (rcvData.size() < 3) {
+#ifdef HW_DEBUG_LOG
     logf << "[ERROR|Servo Read]: Vector should be of size 3, got " << rcvData.size() << "!"
          << std::endl;
+#endif
     return {};
   }
 
   // Succes flag, 0 if succes.
   if (static_cast<int8_t>(rcvData[2]) != 0) {
+#ifdef HW_DEBUG_LOG
     logf << "[ERROR|Servo Read]: Request failed!" << std::endl;
+#endif
     return {};
   }
   return std::vector<uint8_t>(rcvData.begin() + 3, rcvData.end());
@@ -339,7 +371,9 @@ void Board::rcvGPIO() {
 
     request.release();
   } catch (const std::exception &e) {
+#ifdef HW_DEBUG_LOG
     logf << "[ERROR|GPIO Read]: Failed to aquire GPIO Pins: " << e.what() << std::endl;
+#endif
   }
 }
 
@@ -460,19 +494,19 @@ void Board::setServoTorque(const uint8_t id, const bool enable) {
   uint8_t mode = enable ? 0x0B : 0x0C;
   std::vector<uint8_t> data = {mode, id};
   sendPkt(static_cast<uint8_t>(PktFunc::BUS_SERVO), data);
-  std::this_thread::sleep_for(std::chrono::milliseconds(100));
+  // std::this_thread::sleep_for(std::chrono::milliseconds(100));
 }
 
 void Board::setServoId(const uint8_t old_id, const uint8_t new_id) {
   std::vector<uint8_t> data = {0x10, old_id, new_id};
   sendPkt(static_cast<uint8_t>(PktFunc::BUS_SERVO), data);
-  std::this_thread::sleep_for(std::chrono::milliseconds(100));
+  // std::this_thread::sleep_for(std::chrono::milliseconds(100));
 }
 
 void Board::setServoOffset(const uint8_t id, const int8_t offset) {
   std::vector<uint8_t> data = {0x20, id, static_cast<uint8_t>(offset)};
   sendPkt(static_cast<uint8_t>(PktFunc::BUS_SERVO), data);
-  std::this_thread::sleep_for(std::chrono::milliseconds(100));
+  // std::this_thread::sleep_for(std::chrono::milliseconds(100));
 }
 
 void Board::setServoAngleLimit(const uint8_t id,
@@ -486,7 +520,7 @@ void Board::setServoAngleLimit(const uint8_t id,
       static_cast<uint8_t>((lim.second & 0xFF00) >> 8),
   };
   sendPkt(static_cast<uint8_t>(PktFunc::BUS_SERVO), data);
-  std::this_thread::sleep_for(std::chrono::milliseconds(100));
+  // std::this_thread::sleep_for(std::chrono::milliseconds(100));
 }
 
 void Board::setServoVinLim(const uint8_t id,
@@ -500,13 +534,13 @@ void Board::setServoVinLim(const uint8_t id,
       static_cast<uint8_t>((lim.second & 0xFF00) >> 8),
   };
   sendPkt(static_cast<uint8_t>(PktFunc::BUS_SERVO), data);
-  std::this_thread::sleep_for(std::chrono::milliseconds(100));
+  // std::this_thread::sleep_for(std::chrono::milliseconds(100));
 }
 
 void Board::setServoTempLim(const uint8_t id, const int8_t temp) {
   std::vector<uint8_t> data = {0x38, id, static_cast<uint8_t>(temp)};
   sendPkt(static_cast<uint8_t>(PktFunc::BUS_SERVO), data);
-  std::this_thread::sleep_for(std::chrono::milliseconds(100));
+  // std::this_thread::sleep_for(std::chrono::milliseconds(100));
 }
 
 void Board::setServoPos(const std::vector<uint8_t> &ids,
@@ -540,12 +574,16 @@ void Board::setServoPos(const std::vector<uint8_t> &ids,
 /* GETTERS */
 std::optional<uint16_t> Board::getBattery() {
   if (!rcvSerial) {
+#ifdef HW_DEBUG_LOG
     logf << "[ERROR|Battery Reading]: Enable Message Reception First!" << std::endl;
+#endif
     return std::nullopt;
   }
 
   if (!sysQ) {
+#ifdef HW_DEBUG_LOG
     logf << "[ERROR|Battery Reading]: No Battery message available!" << std::endl;
+#endif
     return std::nullopt;
   }
 
@@ -557,8 +595,9 @@ std::optional<uint16_t> Board::getBattery() {
         static_cast<uint16_t>(data[1]) | (static_cast<uint16_t>(data[2]) << 8);
     return battery;
   }
-
+#ifdef HW_DEBUG_LOG
   logf << "[ERROR|Battery Reading]: Did not recognize the message!" << std::endl;
+#endif
   return std::nullopt;
 }
 
@@ -574,12 +613,16 @@ float bytesToFloats(const std::vector<uint8_t> &vec, size_t offset) {
 std::optional<float *> Board::getIMU() {
   static float imu_data[6];
   if (!rcvSerial) {
+#ifdef HW_DEBUG_LOG
     logf << "[ERROR|Read IMU]: Enable Message Reception First!" << std::endl;
+#endif
     return std::nullopt;
   }
 
   if (!imuQ) {
+#ifdef HW_DEBUG_LOG
     logf << "[ERROR|Read IMU]: No IMU message available!" << std::endl;
+#endif
     return std::nullopt;
   }
 
@@ -588,7 +631,9 @@ std::optional<float *> Board::getIMU() {
   imuQ.reset();
 
   if (data.size() != sizeof(float) * 6) {
+#ifdef HW_DEBUG_LOG
     logf << "[ERROR|Read IMU]: imu message doesn't contain 6 values!" << std::endl;
+#endif
     return std::nullopt;
   }
 
@@ -600,12 +645,16 @@ std::optional<float *> Board::getIMU() {
 
 std::optional<std::pair<uint8_t, uint8_t>> Board::getButton() {
   if (!rcvIO) {
+#ifdef HW_DEBUG_LOG
     logf << "[ERROR|Read Button]: Enable Message Reception First!" << std::endl;
+#endif
     return std::nullopt;
   }
 
   if (!keyQ) {
+#ifdef HW_DEBUG_LOG
     logf << "[ERROR|Read Button]: No Button message available!" << std::endl;
+#endif
     return std::nullopt;
   }
 
