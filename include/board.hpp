@@ -9,7 +9,7 @@
 #include <termios.h>
 #include <unistd.h>
 
-#include "keyState.hpp"
+#include <memory>
 #include <atomic>
 #include <cstdint>
 #include <optional>
@@ -39,6 +39,7 @@ constexpr uint8_t CRC8_TABLE[256] = {
     116, 42,  200, 150, 21,  75,  169, 247, 182, 232, 10,  84,  215, 137, 107,
     53};
 
+struct key_state;
 
 class Board {
 public:
@@ -446,8 +447,9 @@ private:
 
   const int key1_pin = 13;
   const int key2_pin = 23;
-  key_state key1_state;
-  key_state key2_state;
+
+  std::unique_ptr<key_state> key1_state;
+  std::unique_ptr<key_state> key2_state;
 
   int br;
   int timeout;

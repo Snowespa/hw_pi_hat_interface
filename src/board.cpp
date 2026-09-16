@@ -25,16 +25,24 @@
 
 #include "../include/board.hpp"
 #include "../include/hwPkt.hpp"
+#include "../include/keyState.hpp"
 
 Board::Board(const std::string &device, const std::string &chip,
              int timeout)
-    : dev(device), br(B1000000), timeout(timeout), fd(-1), rcvSerial(false),
-      chip(chip), rcvIO(false) {
+    : dev(device),
+      br(B1000000),
+      timeout(timeout),
+      fd(-1),
+      rcvSerial(false),
+      chip(chip),
+      rcvIO(false),
+      key1_state(std::make_unique<key_state>()),
+      key2_state(std::make_unique<key_state>()) {
   logf.open("log.txt");
   openPort();
   openGPIO();
-  initKey(&key1_state);
-  initKey(&key2_state);
+  initKey(key1_state.get());
+  initKey(key2_state.get());
 }
 
 Board::~Board() {
@@ -383,16 +391,16 @@ void Board::buttonCB(gpiod::edge_event e) {
   bool value(e.type() == gpiod::edge_event::event_type::FALLING_EDGE);
   bool send(false);
   if (key == key1_pin) {
-    if (updateKeyState(time, value, &key1_state)) {
+    if (updateKeyState(time, value, key1_state.get())) {
       keyQ =
-          std::pair<uint8_t, uint8_t>(0, static_cast<uint8_t>(key1_state.type));
-      initKey(&key1_state);
+          std::pair<uint8_t, uint8_t>(0, static_cast<uint8_t>(key1_state->type));
+      initKey(key1_state.get());
     }
   } else {
-    if (updateKeyState(time, value, &key2_state)) {
+    if (updateKeyState(time, value, key2_state.get())) {
       keyQ =
-          std::pair<uint8_t, uint8_t>(1, static_cast<uint8_t>(key2_state.type));
-      initKey(&key2_state);
+          std::pair<uint8_t, uint8_t>(1, static_cast<uint8_t>(key2_state->type));
+      initKey(key2_state.get());
     }
   }
 }
