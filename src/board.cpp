@@ -1,5 +1,3 @@
-#include "../include/board.hpp"
-
 #include <bits/types/struct_timeval.h>
 #include <condition_variable>
 #include <cstdlib>
@@ -25,6 +23,7 @@
 #include <utility>
 #include <vector>
 
+#include "../include/board.hpp"
 #include "../include/hwPkt.hpp"
 
 Board::Board(const std::string &device, const std::string &chip,
@@ -162,7 +161,6 @@ void Board::rcvPkt() {
       if (FD_ISSET(fd, &read_fds)) {
         uint8_t buf[64];
         int bytes_read = read(fd, buf, sizeof(buf));
-
         if (bytes_read > 0) {
           for (int i = 0; i < bytes_read; i++) {
             uint8_t byte = buf[i];
@@ -254,11 +252,15 @@ void Board::sendPkt(const uint8_t func, const std::vector<uint8_t> &data) {
   std::lock_guard<std::mutex> lock(txM); // make sure only one request can be sent on the fd at a time.
   std::vector<uint8_t> buf{0xAA, 0x55, func};
 
+  // add the length of the data
   buf.push_back(static_cast<uint8_t>(data.size()));
+  // add the data
   buf.insert(buf.end(), data.begin(), data.end());
-
+  // finish with the checksum
   uint8_t crc8 = checksumCRC8(std::vector<uint8_t>(buf.begin() + 2, buf.end()));
   buf.push_back(crc8);
+
+  // write to file.
   ssize_t written = write(fd, buf.data(), buf.size());
 
   if (written < 0) {
@@ -280,7 +282,6 @@ std::vector<uint8_t> Board::servoRead(const uint8_t id, const uint8_t cmd) {
   // Wait until element is available to consume
   std::cv_status lock_status;
   std::unique_lock<std::mutex> lockServo(servoM);
-  servoQ.reset(); // clear the current response if any is pending.
   while (!servoQ) {
     lock_status = servoCV.wait_for(lockServo, std::chrono::milliseconds(10));
     // No packet recived in the time interval
@@ -459,19 +460,19 @@ void Board::setServoTorque(const uint8_t id, const bool enable) {
   uint8_t mode = enable ? 0x0B : 0x0C;
   std::vector<uint8_t> data = {mode, id};
   sendPkt(static_cast<uint8_t>(PktFunc::BUS_SERVO), data);
-  // std::this_thread::sleep_for(std::chrono::milliseconds(200));
+  std::this_thread::sleep_for(std::chrono::milliseconds(100));
 }
 
 void Board::setServoId(const uint8_t old_id, const uint8_t new_id) {
   std::vector<uint8_t> data = {0x10, old_id, new_id};
   sendPkt(static_cast<uint8_t>(PktFunc::BUS_SERVO), data);
-  std::this_thread::sleep_for(std::chrono::milliseconds(200));
+  std::this_thread::sleep_for(std::chrono::milliseconds(100));
 }
 
 void Board::setServoOffset(const uint8_t id, const int8_t offset) {
   std::vector<uint8_t> data = {0x20, id, static_cast<uint8_t>(offset)};
   sendPkt(static_cast<uint8_t>(PktFunc::BUS_SERVO), data);
-  std::this_thread::sleep_for(std::chrono::milliseconds(200));
+  std::this_thread::sleep_for(std::chrono::milliseconds(100));
 }
 
 void Board::setServoAngleLimit(const uint8_t id,
@@ -485,7 +486,7 @@ void Board::setServoAngleLimit(const uint8_t id,
       static_cast<uint8_t>((lim.second & 0xFF00) >> 8),
   };
   sendPkt(static_cast<uint8_t>(PktFunc::BUS_SERVO), data);
-  std::this_thread::sleep_for(std::chrono::milliseconds(200));
+  std::this_thread::sleep_for(std::chrono::milliseconds(100));
 }
 
 void Board::setServoVinLim(const uint8_t id,
@@ -499,13 +500,13 @@ void Board::setServoVinLim(const uint8_t id,
       static_cast<uint8_t>((lim.second & 0xFF00) >> 8),
   };
   sendPkt(static_cast<uint8_t>(PktFunc::BUS_SERVO), data);
-  std::this_thread::sleep_for(std::chrono::milliseconds(200));
+  std::this_thread::sleep_for(std::chrono::milliseconds(100));
 }
 
 void Board::setServoTempLim(const uint8_t id, const int8_t temp) {
   std::vector<uint8_t> data = {0x38, id, static_cast<uint8_t>(temp)};
   sendPkt(static_cast<uint8_t>(PktFunc::BUS_SERVO), data);
-  std::this_thread::sleep_for(std::chrono::milliseconds(200));
+  std::this_thread::sleep_for(std::chrono::milliseconds(100));
 }
 
 void Board::setServoPos(const std::vector<uint8_t> &ids,

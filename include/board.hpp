@@ -241,7 +241,7 @@ public:
    * get servo id. Requests servo id (id) on the bus. If available returns id.
    * If not available returns empty optional. Id 254 corresponds to the
    * broadcasting message and shoould return all servo available on the bus.
-   * (Not working at the moment.)
+   * This doesn't seem to be supported by the rpi extension board.
    *
    * arguments:
    * ----------
