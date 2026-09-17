@@ -53,9 +53,7 @@ public:
    *    - const int baud_rate: the board baud_rate. (default B1000000)
    *    - const int timeout: the timeout for each message.
    */
-  Board(const std::string &device = "/dev/serial0",
-        const std::string &chip = "/dev/gpiochip4",
-        int timeout = 500);
+  Board(int timeout = 500);
 
   /*
    * Destructor. disable reception, stops the thread and closes the port

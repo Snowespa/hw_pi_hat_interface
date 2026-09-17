@@ -27,18 +27,17 @@
 #include "../include/hwPkt.hpp"
 #include "../include/keyState.hpp"
 
-Board::Board(const std::string &device, const std::string &chip,
-             int timeout)
-    : dev(device),
+Board::Board(int timeout)
+    : dev("/dev/ttyAMA0"),
       br(B1000000),
       timeout(timeout),
       fd(-1),
       rcvSerial(false),
-      chip(chip),
+      chip("/dev/gpiochip4"),
       rcvIO(false),
       key1_state(std::make_unique<key_state>()),
       key2_state(std::make_unique<key_state>()) {
-  logf.open("log.txt");
+  logf.open("/tmp/hw_pi_hat_interface_log.txt");
   openPort();
   openGPIO();
   initKey(key1_state.get());
@@ -212,9 +211,7 @@ void Board::rcvPkt() {
               break;
             case PktContState::CHECKSUM:
               if (checksumCRC8(frame) != byte) {
-#ifdef HW_DEBUG_LOG
                 logf << "[ERROR]: Checksum Failed!" << std::endl;
-#endif
                 frame.clear();
                 state = PktContState::STARTBYTE0;
                 break;
@@ -250,9 +247,7 @@ void Board::rcvPkt() {
                 break;
               }
               default:
-#ifdef HW_DEBUG_LOG
                 logf << "[ERROR]: Unknown packet type!" << std::endl;
-#endif
                 break;
               }
               frame.clear();
@@ -264,14 +259,10 @@ void Board::rcvPkt() {
       }
     } else if (result == 0) {
       // Timeout reached, no data recived
-#ifdef HW_DEBUG_LOG
       logf << "[ERROR]: Timeout reached!" << std::endl;
-#endif
       continue;
     } else {
-#ifdef HW_DEBUG_LOG
       logf << "[ERROR]: Error in select()!" << std::endl;
-#endif
     }
   }
 }
@@ -292,13 +283,9 @@ void Board::sendPkt(const uint8_t func, const std::vector<uint8_t> &data) {
   ssize_t written = write(fd, buf.data(), buf.size());
 
   if (written < 0) {
-#ifdef HW_DEBUG_LOG
     logf << "[ERROR]: UART write faile: " << strerror(errno) << std::endl;
-#endif
   } else if (static_cast<size_t>(written) != buf.size()) {
-#ifdef HW_DEBUG_LOG
     logf << "[ERROR]: Partial UART write: " << written << "/" << buf.size() << " bytes" << std::endl;
-#endif
   }
 }
 
