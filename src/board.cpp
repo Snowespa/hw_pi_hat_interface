@@ -24,8 +24,8 @@
 #include <vector>
 
 #include "../include/board.hpp"
-#include "../include/hwPkt.hpp"
-#include "../include/keyState.hpp"
+#include "hwPkt.hpp"
+#include "keyState.hpp"
 
 Board::Board(int timeout)
     : dev("/dev/ttyAMA0"),
