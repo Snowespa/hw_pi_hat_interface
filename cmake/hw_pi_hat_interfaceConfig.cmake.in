@@ -3,6 +3,7 @@
 include(CMakeFindDependencyMacro)
 
 # The installed target depends on libgpiod's C++ bindings.
+find_dependency(Threads REQUIRED)
 find_dependency(PkgConfig REQUIRED)
 
 pkg_check_modules(
