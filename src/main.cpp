@@ -168,6 +168,15 @@ void info(Board &board) {
     }
     std::cout << std::endl;
   }
+
+  std::cout << "Battery: " << std::endl;
+  std::optional<int16_t> battery = board.getBattery();
+  if(!battery) {
+    std::cout << "[ERROR] Could not read IMU entry" << std::endl;
+  } else {
+    std::cout << battery.value() << std::endl;
+  }
+
 }
 
 void actionB() {
