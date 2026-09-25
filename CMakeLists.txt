@@ -62,6 +62,7 @@ set_target_properties(
   VERSION ${PROJECT_VERSION}
   SOVERSION ${PROJECT_VERSION_MAJOR}
   PUBLIC_HEADER include/board.hpp
+  POSITION_INDEPENDENT_CODE ON
 )
 
 target_include_directories(
