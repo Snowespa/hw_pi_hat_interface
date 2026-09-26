@@ -605,10 +605,12 @@ float bytesToFloats(const std::vector<uint8_t> &vec, size_t offset) {
   return value;
 }
 
-std::optional<float *> Board::getIMU() {
-  static float imu_data[6];
+std::optional<std::array<float, 6>> Board::getIMU() {
+  std::array<float, 6> imu_data;
+
   if (!rcvSerial) {
-#ifdef HW_DEBUG_LOG
+
+    #ifdef HW_DEBUG_LOG
     logf << "[ERROR|Read IMU]: Enable Message Reception First!" << std::endl;
 #endif
     return std::nullopt;

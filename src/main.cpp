@@ -9,6 +9,7 @@
 #include <ostream>
 #include <tuple>
 #include <vector>
+#include <array>
 
 #include "../include/board.hpp"
 #include "../third_party/CLI11.hpp"
@@ -157,8 +158,8 @@ void info(Board &board) {
   for (std::vector<uint8_t>::iterator it = ids.begin(); it != ids.end(); it++) {
     board.setServoTorque(*it, true);
   }
-  std::cout << "IMU: " << std::endl;
-  std::optional<float *> imu = board.getIMU();
+  std::cout << "IMU: ";
+  std::optional<std::array<float, 6>> imu = board.getIMU();
 
   if (!imu) {
     std::cout << "[ERROR] Could not read IMU entry" << std::endl;
@@ -169,7 +170,7 @@ void info(Board &board) {
     std::cout << std::endl;
   }
 
-  std::cout << "Battery: " << std::endl;
+  std::cout << "Battery: ";
   std::optional<int16_t> battery = board.getBattery();
   if(!battery) {
     std::cout << "[ERROR] Could not read IMU entry" << std::endl;

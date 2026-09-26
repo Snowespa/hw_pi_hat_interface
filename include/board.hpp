@@ -17,6 +17,7 @@
 #include <thread>
 #include <tuple>
 #include <vector>
+#include <array>
 
 // CRC-8 Lookup Table
 constexpr uint8_t CRC8_TABLE[256] = {
@@ -234,7 +235,7 @@ public:
    * --------
    *    - std::optional<uint8_t>: the imu reading.
    */
-  std::optional<float *> getIMU();
+  std::optional<std::array<float, 6>> getIMU();
 
   /*
    * get servo id. Requests servo id (id) on the bus. If available returns id.
