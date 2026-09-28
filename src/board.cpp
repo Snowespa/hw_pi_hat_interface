@@ -296,15 +296,15 @@ std::vector<uint8_t> Board::servoRead(const uint8_t id, const uint8_t cmd) {
 #endif
     return {};
   }
-
   std::vector<uint8_t> send_data{cmd, id};
+  servoQ.reset();
   sendPkt(static_cast<uint8_t>(PktFunc::BUS_SERVO), send_data);
 
   // Wait until element is available to consume
   std::cv_status lock_status;
   std::unique_lock<std::mutex> lockServo(servoM);
   while (!servoQ) {
-    lock_status = servoCV.wait_for(lockServo, std::chrono::milliseconds(10));
+    lock_status = servoCV.wait_for(lockServo, std::chrono::milliseconds(20));
     // No packet recived in the time interval
     if (lock_status == std::cv_status::timeout) {
 #ifdef HW_DEBUG_LOG
@@ -681,6 +681,9 @@ std::optional<int16_t> Board::getServoPos(const uint8_t id) {
   std::vector<uint8_t> data = servoRead(id, 0x05);
   if (data.empty())
     return std::nullopt;
+  if (data.size() < 2)
+    return std::nullopt;
+
   int16_t pos =
       static_cast<int16_t>(data[0]) | (static_cast<int16_t>(data[1]) << 8);
   return pos;
